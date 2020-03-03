@@ -3,7 +3,8 @@ import time
 from scipy.stats import multivariate_normal
 from multiprocessing import Pool, cpu_count
 
-def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = None, converge_frac = 99, ncpu = None):
+def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = None, converge_frac = 99, ncpu = None,
+               return_all_G=False):
 
     global X, D, h, d, weights, n, H, Hinv
     G = G.astype('float')
@@ -64,7 +65,12 @@ def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = Non
 
     print "number of cpu to be used: {}".format(ncpu)
 
-    return G
+    if return_all_G:
+        return G
+    else:
+        itermask = np.where(error > eps)
+        return G[~itermask]
+
 
 
 

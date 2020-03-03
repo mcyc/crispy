@@ -78,6 +78,9 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
     D = len(im_shape)
     indices = np.indices(im_shape)
 
+    if ordXYZ:
+        # order it in X, Y, Z instead of Z, Y, X
+        indices = np.flip(indices, 0)
 
     if walkerThres is None:
         walkerThres = thres * 1.1
@@ -95,10 +98,6 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
         del Z
         gc.collect()
         Gmask = np.logical_and(Gmask, ZMask)
-
-    if ordXYZ:
-        # order it in X, Y, Z instead of Z, Y, X
-        indices = np.flip(indices, 0)
 
     # get indices of the grid used for KDE
     X = np.array([i[mask] for i in indices])

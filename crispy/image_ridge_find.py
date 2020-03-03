@@ -109,4 +109,5 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
 
     # get masked image
     weights = image[mask]
+    gc.collect()
     return X, G, weights, D

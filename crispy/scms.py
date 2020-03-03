@@ -56,6 +56,7 @@ def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = Non
 
         pct_error = np.percentile(error, converge_frac)
         print "{0}%-tile error: {1}".format(converge_frac, pct_error)
+        print "{0}%-tile error: {1}".format(50, np.median(error))
 
         elapsed_time = time.time() - start_time
         # print elapsed_time

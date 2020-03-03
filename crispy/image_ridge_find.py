@@ -6,7 +6,7 @@ import scms as scms_mul
 ########################################################################################################################
 
 def run(fname, h=1, eps=1e-03, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=None, converge_frac=99, ncpu=None,
-        walkerThres=None):
+        walkerThres=None, walker_frac=None):
     '''
     The wrapper for scmspy_multiproc to identify density ridges in fits images
 
@@ -47,7 +47,7 @@ def run(fname, h=1, eps=1e-03, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
     '''
 
     image = fits.getdata(fname)
-    X, G, weights, D = image2data(image, thres=thres, ordXYZ=ordXYZ, walkerThres=walkerThres)
+    X, G, weights, D = image2data(image, thres=thres, ordXYZ=ordXYZ, walkerThres=walkerThres, walker_frac=walker_frac)
 
     if crdScaling is not None:
         crdScaling = np.array(crdScaling)

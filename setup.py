@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="astro-crispy", # Replace with your own username
-    version="0.1.0",
+    version="0.1.1",
     author="Michael Chun-Yuan Chen",
     author_email="mcychen@uvic.ca",
     description="Computational Ridge Identification with SCMS for Python",

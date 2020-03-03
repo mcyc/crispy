@@ -1,4 +1,5 @@
 import numpy as np
+import gc
 import astropy.io.fits as fits
 import scms as scms_mul
 
@@ -69,7 +70,7 @@ def write_output(coords, fname, **kwargs):
     np.savetxt(fname, coords, **kwargs)
 
 
-def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None):
+def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=None):
     # convert the input image into the native data format of SCMS
     # i.e., pixel coordinates (X), walker coordinates (G), image weights (weights), number of image dimensions (D)
 
@@ -84,6 +85,16 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None):
     # mask the density field
     mask = image > thres
     Gmask = image > walkerThres
+
+    if not walker_frac is None:
+        # randomly sample pixels within Gmask to within a fraction specified by the user
+        from numpy import random
+        Z = random.random(image.shape)
+        ZMask = Z < walker_frac
+        # free some memory
+        del Z
+        gc.collect()
+        Gmask = np.logical_and(Gmask, ZMask)
 
     if ordXYZ:
         # order it in X, Y, Z instead of Z, Y, X

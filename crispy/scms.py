@@ -46,6 +46,7 @@ def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = Non
 
         itermask = np.where(error > eps)
         GjList = G[itermask]
+        print "number of active walkers: {0}".format(len(GjList))
 
         results = pool.map(shift_particle, GjList)
 

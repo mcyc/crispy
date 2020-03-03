@@ -68,8 +68,8 @@ def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = Non
     if return_all_G:
         return G
     else:
-        itermask = np.where(error > eps)
-        return G[~itermask]
+        mask = np.where(error < eps)
+        return G[mask]
 
 
 

@@ -52,9 +52,9 @@ def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = Non
 
         # update the results (note: there maybe a better way to unpack this list)
         results = np.array(results)
-        GRes = results[:,0:D]
-        G[itermask] = GRes[:, None].swapaxes(1, 2)
-        error[itermask] = results[:,D]
+        GRes = results[slice(None),0:D]
+        G[itermask] = GRes[slice(None), None].swapaxes(1, 2)
+        error[itermask] = results[slice(None),D]
 
         pct_error = np.percentile(error, converge_frac)
         print "{0}%-tile error: {1}".format(converge_frac, pct_error)
@@ -82,7 +82,7 @@ def shift_particle(Gj):
     # now weight the probability of each X point by the image
     c = c*weights
     # reshape c so it can be broadcasted onto 3 dimension arrays
-    c = c[:, None, None]
+    c = c[slice(None), None, None]
     pj = np.mean(c)
 
     u = np.matmul(Hinv, (Gj - X))/h**2
@@ -99,7 +99,7 @@ def shift_particle(Gj):
     EigVal, EigVec = np.linalg.eigh(Sigmainv)
 
     # get the eigenvectors with the largest eigenvalues down to D-d (e.g., D-1 for ridge finding)
-    V = EigVec[:, d:D]
+    V = EigVec[slice(None), d:D]
 
     VVT= np.matmul(V, V.T)
     Gj = np.matmul(VVT, shift0 - Gj) + Gj

@@ -2,6 +2,8 @@ import numpy as np
 import gc
 import astropy.io.fits as fits
 import scms as scms_mul
+from skimage.morphology import binary_dilation, binary_erosion, remove_small_holes, remove_small_objects
+from skimage.morphology import disk, skeletonize_3d
 
 ########################################################################################################################
 
@@ -51,14 +53,14 @@ def run(fname, h=1, eps=1e-03, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
 
     if crdScaling is not None:
         crdScaling = np.array(crdScaling)
-        X = X[:]/crdScaling[:, None]
-        G = G[:]/crdScaling[:, None]
+        X = X[slice(None)]/crdScaling[slice(None), None]
+        G = G[slice(None)]/crdScaling[slice(None), None]
 
     kwargs = {'eps':eps, 'maxT':maxT, 'wweights':weights, 'converge_frac':converge_frac, 'ncpu':ncpu}
     G = scms_mul.find_ridge(X, G, D, h, 1, **kwargs)
 
     if crdScaling is not None:
-        return G[:]*crdScaling[:, None]
+        return G[slice(None)]*crdScaling[slice(None), None]
     else:
         return G
 
@@ -70,7 +72,7 @@ def write_output(coords, fname, **kwargs):
     np.savetxt(fname, coords, **kwargs)
 
 
-def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=None):
+def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=None, clean_mask=True, rmSpikes=True):
     # convert the input image into the native data format of SCMS
     # i.e., pixel coordinates (X), walker coordinates (G), image weights (weights), number of image dimensions (D)
 
@@ -89,9 +91,26 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
     mask = image > thres
     Gmask = image > walkerThres
 
+    if clean_mask:
+        print("Polishing the mask to remove noisy features")
+        # created a clean mask on the sky
+        # note: this is performed because 1 isolated pixel on the sky can still be 'large' in 3D given its spectral size
+        mask_2d_clean = clean_mask_2d(np.any(mask, axis=0), disk_r=3)
+        print("original mask size: {}".format(np.sum(mask)))
+        mask = clean_mask_3d(mask)
+        print("initial clean mask size: {}".format(np.sum(mask)))
+        mask = np.logical_and(mask, mask_2d_clean[np.newaxis, slice(None), slice(None)])
+        if rmSpikes:
+            print("removing spectral spikes: {}".format(np.sum(mask)))
+            mask = remove_spec_spikes_3d(mask)
+        print("final mask size: {}".format(np.sum(mask)))
+        from matplotlib import pyplot as plt
+        plt.imshow(np.any(mask, axis=0),origin=0)
+
     if not walker_frac is None:
         # randomly sample pixels within Gmask to within a fraction specified by the user
         from numpy import random
+        print("Placing the walkers randomly  with a filling fraction of :{}".format(walker_frac))
         Z = random.random(image.shape)
         ZMask = Z < walker_frac
         # free some memory
@@ -99,15 +118,47 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
         gc.collect()
         Gmask = np.logical_and(Gmask, ZMask)
 
+    # make sure walkers are indeed placed inside the image mask
+    Gmask = np.logical_and(mask, Gmask)
+
     # get indices of the grid used for KDE
     X = np.array([i[mask] for i in indices])
-    X = X[np.newaxis, :].swapaxes(0, -1)
+    X = X[np.newaxis, slice(None)].swapaxes(0, -1)
 
     # get indices of the test points
     G = np.array([i[Gmask] for i in indices])
-    G = G[np.newaxis, :].swapaxes(0, -1)
+    G = G[np.newaxis, slice(None)].swapaxes(0, -1)
 
     # get masked image
     weights = image[mask]
     gc.collect()
     return X, G, weights, D
+
+
+#=======================================================================================================================
+
+
+def clean_mask_2d(mask, disk_r=3):
+    # clean 2d thredhold mask
+    mask = binary_erosion(mask, disk(disk_r))
+    gc.collect()
+    mask = remove_small_objects(mask, min_size=25)
+    gc.collect()
+    mask = binary_dilation(mask, disk(disk_r))
+    gc.collect()
+    mask = remove_small_holes(mask, area_threshold=25)
+    gc.collect()
+    return mask
+
+
+def clean_mask_3d(mask):
+    mask = binary_dilation(mask)
+    mask = binary_erosion(mask)
+    gc.collect()
+    return mask
+
+
+def remove_spec_spikes_3d(mask):
+    # assumes the model naturally have noise spikes in them
+    spikes = skeletonize_3d(mask)
+    return np.logical_and(mask, ~spikes)

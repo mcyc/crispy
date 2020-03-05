@@ -3,7 +3,7 @@ import gc
 import astropy.io.fits as fits
 import scms as scms_mul
 from skimage.morphology import binary_dilation, binary_erosion, remove_small_holes, remove_small_objects
-from skimage.morphology import disk, skeletonize_3d
+from skimage.morphology import disk, skeletonize_3d, ball
 
 ########################################################################################################################
 
@@ -103,6 +103,9 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
         if rmSpikes:
             print("removing spectral spikes: {}".format(np.sum(mask)))
             mask = remove_spec_spikes_3d(mask)
+        if True:
+            mask = skeletonize_3d(mask)
+            mask = binary_dilation(mask, ball(3))
         print("final mask size: {}".format(np.sum(mask)))
 
     if not walker_frac is None:

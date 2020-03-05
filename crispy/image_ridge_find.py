@@ -104,8 +104,6 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
             print("removing spectral spikes: {}".format(np.sum(mask)))
             mask = remove_spec_spikes_3d(mask)
         print("final mask size: {}".format(np.sum(mask)))
-        from matplotlib import pyplot as plt
-        plt.imshow(np.any(mask, axis=0),origin=0)
 
     if not walker_frac is None:
         # randomly sample pixels within Gmask to within a fraction specified by the user

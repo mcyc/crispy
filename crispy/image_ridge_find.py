@@ -7,13 +7,13 @@ from skimage.morphology import disk, skeletonize_3d, ball
 
 ########################################################################################################################
 
-def run(fname, h=1, eps=1e-03, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=None, converge_frac=99, ncpu=None,
-        walkerThres=None, walker_frac=None):
+def run(image, h=1, eps=1e-03, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=None, converge_frac=99, ncpu=None,
+        walkerThres=None, walker_frac=None, walker_mask=None):
     '''
     The wrapper for scmspy_multiproc to identify density ridges in fits images
 
-    :param fname:
-        <string> The input fits file name of the image.
+    :param image:
+        <string or ndarray> The input fits file name of the image or the image itself
 
     :param h:
         <float> The smoothing bandwidth of the Gaussian kernel.
@@ -48,8 +48,11 @@ def run(fname, h=1, eps=1e-03, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
         Coordinates of the ridge as defined by the walkers.
     '''
 
-    image = fits.getdata(fname)
-    X, G, weights, D = image2data(image, thres=thres, ordXYZ=ordXYZ, walkerThres=walkerThres, walker_frac=walker_frac)
+    if isinstance(image, basestring):
+        image = fits.getdata(image)
+
+    X, G, weights, D = image2data(image, thres=thres, ordXYZ=ordXYZ, walkerThres=walkerThres, walker_frac=walker_frac,
+                                  walker_mask=walker_mask)
 
     if crdScaling is not None:
         crdScaling = np.array(crdScaling)
@@ -72,7 +75,8 @@ def write_output(coords, fname, **kwargs):
     np.savetxt(fname, coords, **kwargs)
 
 
-def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=None, clean_mask=True, rmSpikes=True):
+def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=None, clean_mask=False, rmSpikes=False,
+                                  walker_mask=None):
     # convert the input image into the native data format of SCMS
     # i.e., pixel coordinates (X), walker coordinates (G), image weights (weights), number of image dimensions (D)
 
@@ -107,6 +111,9 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
             mask = skeletonize_3d(mask)
             mask = binary_dilation(mask, ball(3))
         print("final mask size: {}".format(np.sum(mask)))
+
+    if not walker_mask is None:
+        mask = walker_mask
 
     if not walker_frac is None:
         # randomly sample pixels within Gmask to within a fraction specified by the user

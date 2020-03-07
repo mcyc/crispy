@@ -75,7 +75,7 @@ def write_output(coords, fname, **kwargs):
     np.savetxt(fname, coords, **kwargs)
 
 
-def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=None, clean_mask=False, rmSpikes=False,
+def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=None, clean_mask=True, rmSpikes=True,
                                   walker_mask=None):
     # convert the input image into the native data format of SCMS
     # i.e., pixel coordinates (X), walker coordinates (G), image weights (weights), number of image dimensions (D)
@@ -112,8 +112,6 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
             mask = binary_dilation(mask, ball(3))
         print("final mask size: {}".format(np.sum(mask)))
 
-    if not walker_mask is None:
-        mask = walker_mask
 
     if not walker_frac is None:
         # randomly sample pixels within Gmask to within a fraction specified by the user
@@ -128,6 +126,9 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
 
     # make sure walkers are indeed placed inside the image mask
     Gmask = np.logical_and(mask, Gmask)
+
+    if not walker_mask is None:
+        Gmask = np.logical_and(walker_mask, Gmask)
 
     # get indices of the grid used for KDE
     X = np.array([i[mask] for i in indices])

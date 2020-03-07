@@ -2,6 +2,7 @@ import numpy as np
 import time
 from scipy.stats import multivariate_normal
 from multiprocessing import Pool, cpu_count
+import gc
 
 def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = None, converge_frac = 99, ncpu = None,
                return_all_G=False):
@@ -63,6 +64,7 @@ def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = Non
         elapsed_time = time.time() - start_time
         # print elapsed_time
         print time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
+        gc.collect()
 
     print "number of cpu to be used: {}".format(ncpu)
 

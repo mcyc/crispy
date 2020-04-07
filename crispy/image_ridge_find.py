@@ -99,17 +99,21 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
         print("Polishing the mask to remove noisy features")
         # created a clean mask on the sky
         # note: this is performed because 1 isolated pixel on the sky can still be 'large' in 3D given its spectral size
-        mask_2d_clean = clean_mask_2d(np.any(mask, axis=0), disk_r=3)
-        print("original mask size: {}".format(np.sum(mask)))
-        mask = clean_mask_3d(mask)
-        print("initial clean mask size: {}".format(np.sum(mask)))
-        mask = np.logical_and(mask, mask_2d_clean[np.newaxis, slice(None), slice(None)])
-        if rmSpikes:
-            print("removing spectral spikes: {}".format(np.sum(mask)))
-            mask = remove_spec_spikes_3d(mask)
-        if True:
-            mask = skeletonize_3d(mask)
-            mask = binary_dilation(mask, ball(3))
+
+        if image.ndim == 2:
+            mask = clean_mask_2d(mask, disk_r=3)
+        else:
+            mask_2d_clean = clean_mask_2d(np.any(mask, axis=0), disk_r=3)
+            print("original mask size: {}".format(np.sum(mask)))
+            mask = clean_mask_3d(mask)
+            print("initial clean mask size: {}".format(np.sum(mask)))
+            mask = np.logical_and(mask, mask_2d_clean[np.newaxis, slice(None), slice(None)])
+            if rmSpikes:
+                print("removing spectral spikes: {}".format(np.sum(mask)))
+                mask = remove_spec_spikes_3d(mask)
+            if True:
+                mask = skeletonize_3d(mask)
+                mask = binary_dilation(mask, ball(3))
         print("final mask size: {}".format(np.sum(mask)))
 
 

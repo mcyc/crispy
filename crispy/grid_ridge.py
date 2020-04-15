@@ -129,3 +129,43 @@ def make_skeleton(coord, refdata, rm_sml_obj = True, coord_in_xfirst=False, star
     return mask
 
 
+def uniq_per_pix(coord, mask, coord_in_xfirst=False, start_index=1):
+    # take a list of ridge coordinates and return
+    # the method is most efficient if the mask consists of gridded, one voxel wide spines/skeletons
+
+    # if the passed in coordinates are in the order of x, y, and z, instead z, y, and x.
+    if coord_in_xfirst:
+        coord[[0, -1]] = coord[[-1, 0]]
+
+    # round the pixel coordinates into the nearest integer
+    if coord.dtype != 'int64':
+        crds_int = np.rint(coord).astype(int)
+    else:
+        print("[ERROR]: the provided coord are of the type {} instead of intergers").format(coord.dtype)
+        return None
+
+    crds_int = crds_int - start_index
+    crds_int = np.swapaxes(crds_int, 0, 1)
+    crds_int = tuple(zip(*crds_int))
+
+    # get indicies of where the mask is true
+    idx_mask = np.argwhere(mask)
+
+    # get the coordinate index in the smae format as the mask indicies
+    crds_int = np.array(crds_int).T
+    coord = coord.T
+
+    coord_uniq = []
+
+    for i, idx in enumerate(idx_mask):
+        mask_same = np.all(crds_int - idx_mask[i] == 0, axis=1)
+        crd_at_pix = coord[mask_same]
+
+        # get index of the point with the median last-coordinate value within a pixel
+        # (e.g., in 3D, index of the point with the median z value)
+        #z_vals = crd_at_pix[:, 2]
+        z_vals = crd_at_pix[:, -1]
+        med_idx = np.argsort(z_vals)[len(z_vals) // 2]
+        coord_uniq.append(crd_at_pix[med_idx])
+
+    return np.array(coord_uniq).T

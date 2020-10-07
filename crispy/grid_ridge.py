@@ -49,6 +49,7 @@ def grid_skeleton(coord, refdata, coord_in_xfirst=False, start_index=1):
 
     mask = np.zeros(shape=refdata.shape)
     mask[coords] = 1
+
     return mask
 
 
@@ -160,6 +161,8 @@ def uniq_per_pix(coord, mask, coord_in_xfirst=False, start_index=1):
     for i, idx in enumerate(idx_mask):
         mask_same = np.all(crds_int - idx_mask[i] == 0, axis=1)
         crd_at_pix = coord[mask_same]
+        if crd_at_pix.size == 0:
+            print("[ERROR]: crd at pix size: {}; there may be a mismatch in the start_index".format(crd_at_pix.size))
 
         # get index of the point with the median last-coordinate value within a pixel
         # (e.g., in 3D, index of the point with the median z value)

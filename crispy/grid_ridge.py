@@ -41,8 +41,10 @@ def write_skel(filename, data, header):
     data = data.astype('uint8')
     fits.writeto(filename=filename, data=data, header=header, overwrite=True)
 
+
 #======================================================================================================================#
 # label structures (this is the only place where sklearn is needed in the package
+
 
 def label_ridge(coord, eps=1.0, min_samples=5):
     # use DBSCAN to label different, unconnected ridges
@@ -133,24 +135,6 @@ def grid_skeleton(coord, refdata, coord_in_xfirst=False, start_index=1):
 
 def make_skeleton(coord, refdata, rm_sml_obj = True, coord_in_xfirst=False, start_index=1, min_length = 6):
     # take the coordinates of the SCMS skeleton, and map it onto a map or a cube
-    '''
-    # if the passed in coordinates are in the order of x, y, and z, instead z, y, and x.
-    if coord_in_xfirst:
-        #coord[:,0], coord[:,-1] = coord[:,-1], coord[:,0]
-        #coord[0,:], coord[-1,:] = coord[-1,:], coord[0,:]
-        coord[[0, -1]] = coord[[-1, 0]]
-
-    # round the pixel coordinates into the nearest integer
-    if coord.dtype != 'int64':
-        coord = np.rint(coord).astype(int)
-
-    coord = coord - start_index
-    coord = np.swapaxes(coord, 0, 1)
-    coords = tuple(zip(*coord))
-
-    mask = np.zeros(shape=refdata.shape)
-    mask[coords] = 1
-    '''
 
     mask = grid_skeleton(coord, refdata, coord_in_xfirst=coord_in_xfirst, start_index=start_index)
 
@@ -180,14 +164,6 @@ def make_skeleton(coord, refdata, rm_sml_obj = True, coord_in_xfirst=False, star
                 # note: this method may not be able to pick up short spine with lots of branches
                 mask[mask_i] = False
 
-        '''
-        if False:
-            # to ensure the spine is properly connected
-            # If I understand correctly, dilation increase the width of the filament by 1 pixel in every direction)
-            #mask = morphology.binary_dilation(mask)
-            #mask = morphology.skeletonize_3d(mask)
-        '''
-
         # re-label individual branches
         if False:
             mask, num = morphology.label(mask, neighbors=8, return_num=True)
@@ -202,6 +178,7 @@ def make_skeleton(coord, refdata, rm_sml_obj = True, coord_in_xfirst=False, star
 
 
 def get_2d_length(skl3d):
+    # return length of the sky-projected filament
     skl = np.any(skl3d, axis=0)
     skl = skl.astype('bool')
     skl = morphology.skeletonize(skl)
@@ -346,7 +323,6 @@ def endPoints(skel):
 
     # iterate over all permutation of endpoints
     # Note: this does not account for "end points" that are only a pixel long
-    i = 0
     for index, value in np.ndenumerate(base_block):
         if index != cent_idx:
             str_block = base_block.copy()

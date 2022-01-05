@@ -59,13 +59,23 @@ def label_ridge(coord, eps=1.0, min_samples=5):
 def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length = 6, method="robust"):
     # take CRISPY coordinates, label individual filaments, and grid them with one pixel taken off from their ends
     # DB scan is used to avoid sub-sampling with the cube grid
-    delVelMax = 2
+    # note: the current implementation only works for 2D or 3D
 
     # label the filaments
     coord = coord.T
     labels = label_ridge(coord, eps=1.0, min_samples=3)
 
     skel_cube = np.zeros(refdata.shape, dtype=bool)
+
+    if method == "robust":
+        # define the space where end points may be considered connected by 8-neighborhood in 2D and 26-neighbourhood in
+        # 3D
+        if refdata.ndim == 3:
+            selem = morphology.cube(5)
+        elif refdata.ndim == 2:
+            selem = morphology.square(5)
+        else:
+            print("[ERROR] the dimension of the refdata (i.e., {}) is invalid".format(refdata.ndim))
 
     print("---gridding {} distinct skeletons---".format(np.max(labels)))
 
@@ -84,12 +94,12 @@ def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length 
             others = grid_skeleton(coord[omask].T, refdata, coord_in_xfirst=coord_in_xfirst, start_index=start_index)
             others = morphology.skeletonize_3d(others)
 
-            # remove overlaping pixels
+            # remove the endpoint pixels that may connect one structure from another
             if method == "robust":
-                # remove a pixel from the end points
-                # robust is much less efficient, but
+                # robust is much less efficient, but ensure the endpoints that diagonally connects distinct structures
+                # are removed
                 endpts = endPoints(skl)
-                endpts_lg =  morphology.binary_dilation(endpts, selem=morphology.cube(5))
+                endpts_lg =  morphology.binary_dilation(endpts, selem=selem)
 
                 # find where the structures are connected
                 overlap_pt = np.logical_and(endpts_lg, others)
@@ -97,7 +107,7 @@ def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length 
                     skl[np.logical_and(endpts, endpts_lg)] = False
 
             elif method == "fast":
-                # fast method to remove ends that are too close to other stuctures
+                # fast method to remove ends that are "connected to other stuctures when gridded
                 # note, may miss diagonally connected structures
                 others = morphology.binary_dilation(others)
                 skl[np.logical_and(skl, others)] = False

@@ -55,10 +55,64 @@ def label_ridge(coord, eps=1.0, min_samples=5):
     return labels
 
 
-#
+
 def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length = 6, method="robust"):
     # take CRISPY coordinates, label individual filaments, and grid them with one pixel taken off from their ends
     # DB scan is used to avoid sub-sampling with the cube grid
+    delVelMax = 2
+
+    # label the filaments
+    coord = coord.T
+    labels = label_ridge(coord, eps=1.0, min_samples=3)
+
+    skel_cube = np.zeros(refdata.shape, dtype=bool)
+
+    print("---gridding {} distinct skeletons---".format(np.max(labels)))
+
+    for lb in ProgressBar(range(np.max(labels) + 1)):
+    #for lb in range(np.max(labels) + 1):
+        # create a full skeleton
+        # loop through all the lables (except for -1, which is label for noise)
+        skl = grid_skeleton(coord[labels == lb].T, refdata, coord_in_xfirst=coord_in_xfirst, start_index=start_index)
+        skl = morphology.skeletonize_3d(skl)
+        skl = skl.astype(bool)
+
+        if skl.sum() > min_length:
+            # only keep the structure if it has more pixels than the min_length
+
+            omask = np.logical_and(labels != lb, labels >= 0)
+            others = grid_skeleton(coord[omask].T, refdata, coord_in_xfirst=coord_in_xfirst, start_index=start_index)
+            others = morphology.skeletonize_3d(others)
+
+            # remove overlaping pixels
+            if method == "robust":
+                # remove a pixel from the end points
+                # robust is much less efficient, but
+                endpts = endPoints(skl)
+                endpts_lg =  morphology.binary_dilation(endpts, selem=morphology.cube(5))
+
+                # find where the structures are connected
+                overlap_pt = np.logical_and(endpts_lg, others)
+                if np.sum(overlap_pt) > 0:
+                    skl[np.logical_and(endpts, endpts_lg)] = False
+
+            elif method == "fast":
+                # fast method to remove ends that are too close to other stuctures
+                # note, may miss diagonally connected structures
+                others = morphology.binary_dilation(others)
+                skl[np.logical_and(skl, others)] = False
+
+            skel_cube[skl] = True
+
+    return skel_cube
+
+
+# note: this method designed to work on ppv structures
+# more general 3d cleaning has yet to be implemented
+def clean_grid_ppv(coord, refdata, coord_in_xfirst=False, start_index=1, min_length = 6, method="robust"):
+    # take CRISPY coordinates, label individual filaments, and grid them with one pixel taken off from their ends
+    # DB scan is used to avoid sub-sampling with the cube grid
+    delVelMax = 2
 
     # label the filaments
     coord = coord.T
@@ -102,9 +156,15 @@ def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length 
                 others = morphology.binary_dilation(others)
                 skl[np.logical_and(skl, others)] = False
 
+            # remove vertical segments with delVelMax number of pixels
+            # note: if
+            skl2d = skl.sum(axis=0)
+            skl[:, skl2d > delVelMax] = False
+
             skel_cube[skl] = True
 
-
+    # final cleaning to remove small objects
+    skel_cube = morphology.remove_small_objects(skel_cube, min_size=min_length, connectivity=2, in_place=False)
     return skel_cube
 
 

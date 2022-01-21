@@ -14,7 +14,7 @@ def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = Non
 
     n = len(X)
     m = len(G)  # x and y coordinates 2xN format
-    print "n, m: {0}, {1}".format(n,m)
+    print("n, m: {0}, {1}".format(n,m))
     t = 0
 
     H = np.eye(D) * h**2
@@ -55,13 +55,13 @@ def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = Non
         error[itermask] = results[:,D]
 
         pct_error = np.percentile(error, converge_frac)
-        print "{0}%-tile error: {1}".format(converge_frac, pct_error)
+        print("{0}%-tile error: {1}".format(converge_frac, pct_error))
 
         elapsed_time = time.time() - start_time
         # print elapsed_time
-        print time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
+        print(time.strftime("%H:%M:%S", time.gmtime(elapsed_time)))
 
-    print "number of cpu to be used: {}".format(ncpu)
+    print("number of cpu to be used: {}".format(ncpu))
 
     return G
 

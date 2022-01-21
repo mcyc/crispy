@@ -1,11 +1,14 @@
 import numpy as np
 import astropy.io.fits as fits
+from skimage import morphology
+
 import scms as scms_mul
+
 
 ########################################################################################################################
 
 def run(fname, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=None, converge_frac=99, ncpu=None,
-        walkerThres=None):
+        walkerThres=None, overmask=None, min_size=9):
     '''
     The wrapper for scmspy_multiproc to identify density ridges in fits images
 
@@ -41,12 +44,16 @@ def run(fname, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
     :param walkerThres:
         <float> The lower intensity threshold for where the walker will be placed on the the image.
 
+    :param overmask:
+        <boolean ndarray>
+
     :return:
         Coordinates of the ridge as defined by the walkers.
     '''
 
     image = fits.getdata(fname)
-    X, G, weights, D = image2data(image, thres=thres, ordXYZ=ordXYZ, walkerThres=walkerThres)
+    X, G, weights, D = image2data(image, thres=thres, ordXYZ=ordXYZ, walkerThres=walkerThres, overmask=overmask,
+                                  min_size=min_size)
 
     if crdScaling is not None:
         crdScaling = np.array(crdScaling)
@@ -69,7 +76,28 @@ def write_output(coords, fname, **kwargs):
     np.savetxt(fname, coords, **kwargs)
 
 
-def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None):
+def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, overmask=None, min_size=9):
+    '''
+
+    :param image:
+        <ndarray> the image from which CRISPy runs on
+
+    :param thres:
+        <float> the minimal value that a voxel has have to be included in the CRISPy run
+
+    :param ordXYZ:
+        <boolean> indicate whether or not the data is ordered in XYZ rather than ZYX. Also work for n-dimensional
+         equivalent. If false, the code will assume the indices is in the reverse order
+
+    :param walkerThres:
+        <float> the minimal value that a voxel has have to be have a walker placed on it
+
+    :param overmask:
+        <boolean ndarray> boolean mask to indicate which voxels to be included in the CRISPy run in addition to the
+        thres value criteria
+
+    :return:
+    '''
     # convert the input image into the native data format of SCMS
     # i.e., pixel coordinates (X), walker coordinates (G), image weights (weights), number of image dimensions (D)
 
@@ -81,9 +109,22 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None):
     if walkerThres is None:
         walkerThres = thres * 1.1
 
+    if overmask is None:
+        overmask = np.isfinite(image)
+
     # mask the density field
     mask = image > thres
     Gmask = image > walkerThres
+
+    mask = np.logical_and(mask, overmask)
+    Gmask = np.logical_and(Gmask, overmask)
+
+    if min_size is not None:
+        # remove structures with sizes less than min_size number of pixels
+        mask = morphology.remove_small_objects(Gmask, min_size=min_size, connectivity=1)
+        # ensure the walker is placed only over the masked image
+        Gmask = np.logical_and(Gmask, mask)
+
 
     if ordXYZ:
         # order it in X, Y, Z instead of Z, Y, X

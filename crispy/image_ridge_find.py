@@ -4,7 +4,7 @@ import scms as scms_mul
 
 ########################################################################################################################
 
-def run(fname, h=1, eps=1e-03, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=None, converge_frac=99, ncpu=None,
+def run(fname, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=None, converge_frac=99, ncpu=None,
         walkerThres=None):
     '''
     The wrapper for scmspy_multiproc to identify density ridges in fits images

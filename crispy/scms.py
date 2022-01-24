@@ -4,17 +4,15 @@ from scipy.stats import multivariate_normal
 from multiprocessing import Pool, cpu_count
 from itertools import repeat
 
-def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = None, converge_frac = 99, ncpu = None):
+# note: pool.starmap used here is only available in python 3.3 or newer (see below)
+# https://docs.python.org/dev/library/multiprocessing.html#multiprocessing.pool.Pool.starmap
 
+#======================================================================================================================#
 
-    #global X, D, h, d, weights, n, H, Hinv
+def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, converge_frac = 99, ncpu = None):
+
     G = G.astype('float')
-    X = XX.astype('float')
-    D = DD
-    h = hh
-    d = dd
-
-
+    X = X.astype('float')
     n = len(X)
     m = len(G)  # x and y coordinates 2xN format
     print("n, m: {0}, {1}".format(n,m))
@@ -49,10 +47,9 @@ def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = Non
         itermask = np.where(error > eps)
         GjList = G[itermask]
 
-        #results = pool.map(shift_particle, GjList)
         # note: In repeat(), the memory space is not created for every variable.
         # Rather it creates only one variable and repeats the same variable.
-        results = pool.starmap(shift_particle_2, zip(GjList, repeat(X), repeat(D), repeat(h), repeat(d),
+        results = pool.starmap(shift_particle, zip(GjList, repeat(X), repeat(D), repeat(h), repeat(d),
                                                      repeat(weights),repeat(n), repeat(H), repeat(Hinv)))
 
         # update the results (note: there maybe a better way to unpack this list)
@@ -73,43 +70,8 @@ def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = Non
     return G
 
 
-'''
-def shift_particle(Gj):
-    # shift test G[j] particles
-    c = multivariate_normal.pdf(X.reshape(X.shape[0:2]), mean=Gj.ravel(), cov=H)
 
-    # now weight the probability of each X point by the image
-    c = c*weights
-    # reshape c so it can be broadcasted onto 3 dimension arrays
-    c = c[:, None, None]
-    pj = np.mean(c)
-
-    u = np.matmul(Hinv, (Gj - X))/h**2
-    g = -1*np.sum((c * u),axis=0)/n
-
-    # compute the Hessian matrix
-    Hess = np.sum(c * (np.matmul(u, T_1D(u)) - Hinv), axis=0) / n
-
-    Sigmainv = -1*Hess/pj + np.matmul(g, g.T)/pj**2
-    shift0 = Gj + np.matmul(H, g) / pj
-
-    # Sigmainv matrices computed here are symmetric, and thus linalg.eigh is preferred
-    # note that the eigenvectors in linalg.eigh is already sorted unlike linalg.eig
-    EigVal, EigVec = np.linalg.eigh(Sigmainv)
-
-    # get the eigenvectors with the largest eigenvalues down to D-d (e.g., D-1 for ridge finding)
-    V = EigVec[:, d:D]
-
-    VVT= np.matmul(V, V.T)
-    Gj = np.matmul(VVT, shift0 - Gj) + Gj
-
-    tmp = np.matmul(V.T, g)
-    errorj = np.sqrt(np.sum(tmp**2) / np.sum(g**2))
-    return np.append(Gj.ravel(), [errorj])
-'''
-
-
-def shift_particle_2(Gj, X, D, h, d, weights, n, H, Hinv):
+def shift_particle(Gj, X, D, h, d, weights, n, H, Hinv):
     # shift test G[j] particles
     c = multivariate_normal.pdf(X.reshape(X.shape[0:2]), mean=Gj.ravel(), cov=H)
 

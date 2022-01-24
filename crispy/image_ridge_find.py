@@ -121,7 +121,7 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, overmask=Non
 
     if min_size is not None:
         # remove structures with sizes less than min_size number of pixels
-        mask = morphology.remove_small_objects(Gmask, min_size=min_size, connectivity=1)
+        mask = morphology.remove_small_objects(mask, min_size=min_size, connectivity=1)
         # ensure the walker is placed only over the masked image
         Gmask = np.logical_and(Gmask, mask)
 

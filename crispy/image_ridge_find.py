@@ -2,7 +2,7 @@ import numpy as np
 import astropy.io.fits as fits
 from skimage import morphology
 
-import scms as scms_mul
+from . import scms as scms_mul
 
 
 ########################################################################################################################

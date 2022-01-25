@@ -2,16 +2,17 @@ import numpy as np
 import time
 from scipy.stats import multivariate_normal
 from multiprocessing import Pool, cpu_count
+from itertools import repeat
 
-def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = None, converge_frac = 99, ncpu = None):
+# note: pool.starmap used here is only available in python 3.3 or newer (see below)
+# https://docs.python.org/dev/library/multiprocessing.html#multiprocessing.pool.Pool.starmap
 
-    global X, D, h, d, weights, n, H, Hinv
+#======================================================================================================================#
+
+def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, converge_frac = 99, ncpu = None):
+
     G = G.astype('float')
-    X = XX.astype('float')
-    D = DD
-    h = hh
-    d = dd
-
+    X = X.astype('float')
     n = len(X)
     m = len(G)  # x and y coordinates 2xN format
     print("n, m: {0}, {1}".format(n,m))
@@ -46,7 +47,10 @@ def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = Non
         itermask = np.where(error > eps)
         GjList = G[itermask]
 
-        results = pool.map(shift_particle, GjList)
+        # note: In repeat(), the memory space is not created for every variable.
+        # Rather it creates only one variable and repeats the same variable.
+        results = pool.starmap(shift_particle, zip(GjList, repeat(X), repeat(D), repeat(h), repeat(d),
+                                                     repeat(weights),repeat(n), repeat(H), repeat(Hinv)))
 
         # update the results (note: there maybe a better way to unpack this list)
         results = np.array(results)
@@ -67,7 +71,7 @@ def find_ridge(XX, G, DD=3, hh=1, dd=1, eps = 1e-06, maxT = 1000, wweights = Non
 
 
 
-def shift_particle(Gj):
+def shift_particle(Gj, X, D, h, d, weights, n, H, Hinv):
     # shift test G[j] particles
     c = multivariate_normal.pdf(X.reshape(X.shape[0:2]), mean=Gj.ravel(), cov=H)
 

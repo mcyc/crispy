@@ -51,12 +51,43 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
 
 def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     # compute probability density of each X point
-    #c = multivariate_normal.pdf(X, mean=Gj, cov=H)
 
-    #print(X.shape)
-    #print(Gj.shape)
+    print(X.shape)
+    print(Gj.shape)
 
-    c = gaussian_kde_scipy(Gj, X, h, weights)
+    #print(Gj.ravel().shape)
+
+    #c = np.exp(vectorized_gaussian_logpdf_2(X, means=Gj, covariances=H))
+
+    #XX = X.reshape(X.shape[0:2])
+    #XX = np.squeeze(X)
+    XX = np.broadcast_to(X, (Gj.shape[0],) + X.shape)
+    #GG = Gj.reshape(Gj.shape[0:2])
+    #GG = np.squeeze(Gj)
+    GG = np.broadcast_to(Gj, (X.shape[0],) + Gj.shape)
+    GG = np.swapaxes(GG, 0, 1)
+
+    #HH = np.broadcast_to(H, (Gj.shape[0],)+  (X.shape[0],) + H.shape)
+    #print("HH: \t {}".format(HH.shape))
+
+    #print(XX.shape)
+    #c = multivariate_normal.pdf(XX, mean=Gj.ravel(), cov=H)
+
+    '''
+    HH = np.broadcast_to(H, (Gj.shape[0],) + H.shape)
+    print("HH: \t {}".format(HH.shape))
+    '''
+    #c = multivariate_normal.pdf(XX, mean=Gj.ravel(), cov=H)
+    #c = multivariate_normal.pdf(XX, mean=Gj.ravel(), cov=HH)
+
+    # note X.shape[-1] should == D
+    HH = np.broadcast_to(h**2, (Gj.shape[0],) + (X.shape[0],) + (X.shape[-1],))
+    print("HH: \t {}".format(HH.shape))
+    c = np.exp(vectorized_gaussian_logpdf(XX, means=GG, covariances=HH))
+
+
+
+    #c = gaussian_kde_scipy(Gj, X, h, weights)
     #c = gaussian_kde_scipy(X, Gj, h)
 
     print("c: \t {}".format(c.shape))
@@ -64,9 +95,11 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
 
     # now weight the probability of each X point by the image
     #c *= weights
+    c *= np.broadcast_to(weights, c.shape)
 
     # compute mean probability of the test particle
-    pj = c.mean(axis=0)
+    pj = c.mean(axis=1)
+    #pj = c.mean(axis=0)
     #pj = c.mean(axis=tuple(range(1, c.ndim)))
     print("pj: \t {}".format(pj.shape))
 
@@ -86,9 +119,13 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     #u = np.swapaxes(u, 0, 1)
     #u = np.einsum('ij, jkl->kil', Hinv, Gj - X)
 
-    cb = np.broadcast_to(c[:, None, None], (Gj.shape[0],) + c[:, None, None].shape)
+    #cb = np.broadcast_to(c[:, None, None], (X.shape[0],) + c[:, None, None].shape)
+    #cb = np.broadcast_to(c[:, None, None, None], c.shape + weights.shape + (1,1))
+    cb = np.broadcast_to(c[:, :, None, None], u.shape)
+    print("cb: \t {}".format(cb.shape))
     #g = -np.sum(c[:, None] * u, axis=0) / n
-    g = -np.sum(cb * u, axis=0) / n
+    #g = -np.sum(cb * u, axis=0) / n
+    g = -np.sum(cb * u, axis=1) / n
     print("g: \t {}".format(g.shape))
 
     #Hess = np.sum(c[:, None, None] * (np.matmul(u[:, None], T_1D(u)) - Hinv), axis=0) / n
@@ -101,7 +138,8 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     yo = uT - Hinv
     print("yo: \t {}".format(yo.shape))
 
-    cyo = c[None, :, None, None]*yo
+    #cyo = c[None, :, None, None]*yo
+    cyo = cb*yo
     print("cyo: \t {}".format(cyo.shape))
 
     # sum over all the pixels (but not walkers)
@@ -113,7 +151,9 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     #Hess = np.sum(c[:, None, None] * , axis=0) / n
 
     # compute inverse of the covariance matrix
-    Sigmainv = -Hess/pj + np.matmul(g, T_1D(g))/pj**2
+    ppj = np.broadcast_to(pj[:, None, None], Hess.shape)
+    #Sigmainv = -Hess/pj + np.matmul(g, T_1D(g))/pj**2
+    Sigmainv = -Hess / ppj + np.matmul(g, T_1D(g)) / ppj ** 2
 
     # compute shift
     shift0 = Gj + np.matmul(H, g) / pj
@@ -176,3 +216,47 @@ def gaussian_kde_scipy(x, data, h, weights=None):
     kde = KernelDensity(kernel='gaussian', bandwidth=h).fit(data, sample_weight=weights)
     # exp is used because score_sample returns log likelihood
     return np.exp(kde.score_samples(x))
+
+
+
+def vectorized_gaussian_logpdf(X, means, covariances):
+    """
+    Compute log N(x_i; mu_i, sigma_i) for each x_i, mu_i, sigma_i
+    Note: this assumes the covariance matrices constructed from covariances are diagonal
+    The n, m, d in the arguments are the number of X, mean, and data dimesions, respectively
+    Args:
+        X : shape (n, m, d)
+            Data points
+        means : shape (n,m, d)
+            Mean vectors
+        covariances : shape (n,m, d)
+            Diagonal covariance matrices
+    Returns:
+        logpdfs : shape (n,)
+            Log probabilities
+    """
+
+    # remove the extra axis
+    X = np.squeeze(X)
+    means = np.squeeze(means)
+
+    # find the dimesions of the data
+    d = X.shape[-1]
+    constant = d * np.log(2 * np.pi)
+    #log_determinants = np.log(np.prod(covariances, axis=1))
+    log_determinants = np.log(np.prod(covariances, axis=-1))
+
+    deviations = X - means
+    inverses = 1 / covariances
+
+    '''
+    print("constant: {}".format(constant.shape))
+    print("log_determinants: {}".format(log_determinants.shape))
+    print("deviations: {}".format(deviations.shape))
+    print("inverses: {}".format(inverses.shape))
+    '''
+
+    #return -0.5 * (constant + log_determinants +
+    #    np.sum(deviations * inverses * deviations, axis=1))
+    return -0.5 * (constant + log_determinants +
+        np.sum(deviations * inverses * deviations, axis=-1))

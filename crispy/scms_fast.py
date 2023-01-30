@@ -55,37 +55,16 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     print(X.shape)
     print(Gj.shape)
 
-    #print(Gj.ravel().shape)
-
-    #c = np.exp(vectorized_gaussian_logpdf_2(X, means=Gj, covariances=H))
-
-    #XX = X.reshape(X.shape[0:2])
-    #XX = np.squeeze(X)
     XX = np.broadcast_to(X, (Gj.shape[0],) + X.shape)
-    #GG = Gj.reshape(Gj.shape[0:2])
-    #GG = np.squeeze(Gj)
     GG = np.broadcast_to(Gj, (X.shape[0],) + Gj.shape)
     GG = np.swapaxes(GG, 0, 1)
 
-    #HH = np.broadcast_to(H, (Gj.shape[0],)+  (X.shape[0],) + H.shape)
-    #print("HH: \t {}".format(HH.shape))
-
-    #print(XX.shape)
-    #c = multivariate_normal.pdf(XX, mean=Gj.ravel(), cov=H)
-
-    '''
-    HH = np.broadcast_to(H, (Gj.shape[0],) + H.shape)
-    print("HH: \t {}".format(HH.shape))
-    '''
-    #c = multivariate_normal.pdf(XX, mean=Gj.ravel(), cov=H)
     #c = multivariate_normal.pdf(XX, mean=Gj.ravel(), cov=HH)
 
     # note X.shape[-1] should == D
     HH = np.broadcast_to(h**2, (Gj.shape[0],) + (X.shape[0],) + (X.shape[-1],))
     print("HH: \t {}".format(HH.shape))
     c = np.exp(vectorized_gaussian_logpdf(XX, means=GG, covariances=HH))
-
-
 
     #c = gaussian_kde_scipy(Gj, X, h, weights)
     #c = gaussian_kde_scipy(X, Gj, h)
@@ -99,10 +78,7 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
 
     # compute mean probability of the test particle
     pj = c.mean(axis=1)
-    #pj = c.mean(axis=0)
-    #pj = c.mean(axis=tuple(range(1, c.ndim)))
     print("pj: \t {}".format(pj.shape))
-
 
     # broadcast Gj for vectorization operation
     print("Gj: \t {}".format(Gj.shape))
@@ -111,20 +87,19 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
 
     Gj = np.broadcast_to(Gj, (X.shape[0],) + Gj.shape)
     Gj = np.swapaxes(Gj, 0, 1)
+
     print("Gj: \t {}".format(Gj.shape))
+    print("X: \t {}".format(X.shape))
+    print("XX: \t {}".format(XX.shape))
 
     # compute gradient and Hessian
-    u = np.matmul(Hinv, (Gj - X))/h**2
+    # X can probably be fine for the operation below without broadcasting to XX
+    u = np.matmul(Hinv, (Gj - XX))/h**2
     print("u: \t {}".format(u.shape))
-    #u = np.swapaxes(u, 0, 1)
-    #u = np.einsum('ij, jkl->kil', Hinv, Gj - X)
 
-    #cb = np.broadcast_to(c[:, None, None], (X.shape[0],) + c[:, None, None].shape)
-    #cb = np.broadcast_to(c[:, None, None, None], c.shape + weights.shape + (1,1))
     cb = np.broadcast_to(c[:, :, None, None], u.shape)
     print("cb: \t {}".format(cb.shape))
-    #g = -np.sum(c[:, None] * u, axis=0) / n
-    #g = -np.sum(cb * u, axis=0) / n
+
     g = -np.sum(cb * u, axis=1) / n
     print("g: \t {}".format(g.shape))
 
@@ -135,7 +110,14 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     Tmu = np.matmul(u, uT)
     print("Tmu: \t {}".format(Tmu.shape))
 
-    yo = uT - Hinv
+    #cc = np.broadcast_to(c[:, :, None, None], Tmu.shape)
+    #print("cc: \t {}".format(cc.shape))
+    #cTuT = cc*Tmu
+    #print("cTuT: \t {}".format(cTuT.shape))
+
+
+    # no broadcasting needed for Hinv?
+    yo = Tmu - Hinv
     print("yo: \t {}".format(yo.shape))
 
     #cyo = c[None, :, None, None]*yo
@@ -143,12 +125,9 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     print("cyo: \t {}".format(cyo.shape))
 
     # sum over all the pixels (but not walkers)
-    Hess = np.sum(cyo, axis=1)
+    Hess = np.sum(cyo, axis=1)/ n
     print("Hess: \t {}".format(Hess.shape))
 
-    #yo  = np.matmul(u, Tu - Hinv)
-    #print("yo: \t {}".format(yo.shape))
-    #Hess = np.sum(c[:, None, None] * , axis=0) / n
 
     # compute inverse of the covariance matrix
     ppj = np.broadcast_to(pj[:, None, None], Hess.shape)

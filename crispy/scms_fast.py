@@ -152,23 +152,79 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
 
     # compute inverse of the covariance matrix
     ppj = np.broadcast_to(pj[:, None, None], Hess.shape)
+    print("ppj: \t {}".format(ppj.shape))
     #Sigmainv = -Hess/pj + np.matmul(g, T_1D(g))/pj**2
     Sigmainv = -Hess / ppj + np.matmul(g, T_1D(g)) / ppj ** 2
 
-    # compute shift
-    shift0 = Gj + np.matmul(H, g) / pj
+    print("Sigmainv: \t {}".format(Sigmainv.shape))
 
+    ho = np.matmul(H, g)
+    print("ho: \t {}".format(ho.shape))
+
+    ppj2 = np.broadcast_to(pj[:, None, None], ho.shape)
+    print("ppj2: \t {}".format(ppj2.shape))
+
+    # compute shift
+    ta = np.matmul(H, g) / ppj2
+    ta = np.broadcast_to(ta[:, None], Gj.shape)
+    print("ta: \t {}".format(ta.shape))
+
+    #shift0 = Gj + np.matmul(H, g) / ppj2
+    shift0 = Gj + ta
     # compute eigenvectors with the largest eigenvalues down to D-d
     EigVal, EigVec = np.linalg.eigh(Sigmainv)
     V = EigVec[:, d:D]
+    print("V: \t {}".format(V.shape))
+    V = np.broadcast_to(V[:,None], uT.shape)
+    print("V: \t {}".format(V.shape))
 
     # shift the test particle
-    Gj = np.matmul(V, np.matmul(V.T, shift0 - Gj)) + Gj
+    #Gj = np.matmul(V, np.matmul(V.T, shift0 - Gj)) + Gj
+    VT = T_1D(V)
+    print("VT: \t {}".format(VT.shape))
+    #VVT = np.matmul(V, VT)
+    # I need to check if this reverse order for the vectorization make sense
+    VVT = np.matmul(VT, V)
+
+    print("VVT: \t {}".format(VVT.shape))
+    print("shift0: \t {}".format(shift0.shape))
+    ka = shift0 - Gj
+    print("ka: \t {}".format(ka.shape))
+
+    #Gj = np.matmul(VVT, shift0 - Gj) + Gj
+    Gj = np.matmul(VVT, ka) + Gj
+
+    '''
+    #Gj = np.matmul(V, np.matmul(VT, shift0 - Gj)) + Gj
+    ba = np.matmul(VT, shift0 - Gj)
+    print("ba: \t {}".format(ba.shape))
+    Gj = np.matmul(V, ba) + Gj
+    '''
 
     # compute error
-    tmp = np.matmul(V.T, g)
-    errorj = np.sqrt(np.sum(tmp**2) / np.sum(g**2))
-    return np.append(Gj.ravel(), [errorj])
+    g = np.broadcast_to(g[:,None], VT.shape)
+    print("g: \t {}".format(g.shape))
+    #tmp = np.matmul(VT, g)
+    tmp = np.matmul(V, g)
+    print("tmp: \t {}".format(tmp.shape))
+
+    # reduce redundancy
+    g = g[:,0,:]
+    tmp = tmp[:,0,:]
+
+    errorj = np.sqrt(np.sum(tmp**2, axis=(1,2)) / np.sum(g**2, axis=(1,2)))
+    #return np.append(Gj.ravel(), [errorj])
+
+
+
+
+
+    print("Gj: \t {}".format(Gj.shape))
+    print("errorj: \t {}".format(errorj.shape))
+    Gjf = Gj[:,0,:]
+    print("Gjf: \t {}".format(Gjf.shape))
+
+    return Gjf, errorj
 
 
 def T_1D(mtxAry):

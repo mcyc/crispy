@@ -50,13 +50,9 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
 
 
 def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
-    # compute probability density of each X point
-
-    print(X.shape)
-    print(Gj.shape)
 
     def get_c(X,Gj,h):
-        # find Gaussian centered around Gj, evaulated at X
+        # find Gaussian provability centered around Gj, evaulated at X
         # broadcast to a common shape
         XX = np.broadcast_to(X, (Gj.shape[0],) + X.shape)
         GG = np.broadcast_to(Gj[:,None], (Gj.shape[0],) + X.shape)
@@ -69,115 +65,60 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
         HH = np.broadcast_to(h**2, (GG.shape[0], GG.shape[1]))
         return np.exp(vectorized_gaussian_logpdf(XX, means=GG, covariances=HH))
 
+    # compute probability density of each X point
     c = get_c(X,Gj,h)
-    print("c: \t {}".format(c.shape))
-    print("weights: {}".format(weights.shape))
 
     # now weight the probability of each X point by the image (i.e., c *= weights)
     c *= np.broadcast_to(weights, c.shape)
 
-    # compute mean probability of the test particle
+    # compute mean probability of the test particle for each walker G
     pj = c.mean(axis=1)
-    print("pj: \t {}".format(pj.shape))
 
     # broadcast Gj for vectorization operation
-    print("Gj: \t {}".format(Gj.shape))
-    print("X: \t {}".format(X.shape))
-    print("Hinv: \t {}".format(Hinv.shape))
-
-    Gj = np.broadcast_to(Gj, (X.shape[0],) + Gj.shape)
-    Gj = np.swapaxes(Gj, 0, 1)
-
-    print("Gj: \t {}".format(Gj.shape))
-    print("X: \t {}".format(X.shape))
-
+    Gj = np.broadcast_to(Gj[:, None], (Gj.shape[0],) + X.shape)
 
     # compute gradient and Hessian
-    # X can probably be fine for the operation below without broadcasting to XX
-    u = np.matmul(Hinv, (Gj - X))/h**2
-    print("u: \t {}".format(u.shape))
+    u = np.matmul(Hinv, (Gj - X)) / h ** 2
 
-    cb = np.broadcast_to(c[:, :, None, None], u.shape)
-    print("cb: \t {}".format(cb.shape))
+    def get_g_n_Hess(c, u, n, Hinv):
+        cb = np.broadcast_to(c[:, :, None, None], u.shape)
+        g = -np.sum(cb * u, axis=1) / n
+        # sum over all the pixels (but not walkers)
+        Hess = np.sum(cb*(np.matmul(u, T_1D(u)) - Hinv), axis=1)/ n
+        return g, Hess
 
-    g = -np.sum(cb * u, axis=1) / n
-    print("g: \t {}".format(g.shape))
-
-    uT = T_1D(u)
-    print("uT: \t {}".format(uT.shape))
-
-    Tmu = np.matmul(u, uT)
-    print("Tmu: \t {}".format(Tmu.shape))
-
-    # no broadcasting needed for Hinv?
-    yo = Tmu - Hinv
-    print("yo: \t {}".format(yo.shape))
-
-    cyo = cb*yo
-    print("cyo: \t {}".format(cyo.shape))
-
-    # sum over all the pixels (but not walkers)
-    Hess = np.sum(cyo, axis=1)/ n
-    print("Hess: \t {}".format(Hess.shape))
-
+    g, Hess = get_g_n_Hess(c, u, n, Hinv)
 
     # compute inverse of the covariance matrix
-    ppj = np.broadcast_to(pj[:, None, None], Hess.shape)
-    print("ppj: \t {}".format(ppj.shape))
-    Sigmainv = -Hess / ppj + np.matmul(g, T_1D(g)) / ppj ** 2
+    def get_Sigmainv(Hess, g, pj):
+        ppj = np.broadcast_to(pj[:, None, None], Hess.shape)
+        return -Hess / ppj + np.matmul(g, T_1D(g)) / ppj ** 2
 
-    print("Sigmainv: \t {}".format(Sigmainv.shape))
-
-    ho = np.matmul(H, g)
-    print("ho: \t {}".format(ho.shape))
-
-    ppj2 = np.broadcast_to(pj[:, None, None], ho.shape)
-    print("ppj2: \t {}".format(ppj2.shape))
+    Sigmainv = get_Sigmainv(Hess, g, pj)
 
     # compute shift
-    ta = np.matmul(H, g) / ppj2
-    ta = np.broadcast_to(ta[:, None], Gj.shape)
-    print("ta: \t {}".format(ta.shape))
+    def get_shift0(Gj, H, g, pj):
+        Gxg = np.matmul(H, g)
+        ppj2 = np.broadcast_to(pj[:, None, None], Gxg.shape)
+        return Gj + np.broadcast_to((Gxg / ppj2)[:, None], Gj.shape)
 
-    shift0 = Gj + ta
+    shift0 = get_shift0(Gj, H, g, pj)
+
     # compute eigenvectors with the largest eigenvalues down to D-d
     EigVal, EigVec = np.linalg.eigh(Sigmainv)
     V = EigVec[:, d:D]
-    print("V: \t {}".format(V.shape))
-    V = np.broadcast_to(V[:,None], uT.shape)
-    print("V: \t {}".format(V.shape))
 
     # shift the test particle
-    VT = T_1D(V)
-    print("VT: \t {}".format(VT.shape))
-    # I need to check if this reverse order for the vectorization make sense
-    VVT = np.matmul(VT, V)
-
-    print("VVT: \t {}".format(VVT.shape))
-    print("shift0: \t {}".format(shift0.shape))
-    ka = shift0 - Gj
-    print("ka: \t {}".format(ka.shape))
-
-    Gj = np.matmul(VVT, ka) + Gj
+    # Note, the order of matrix multiplication is reverse from the non-vectorized version
+    VVT = np.matmul(T_1D(V), V)
+    VVT = np.broadcast_to(VVT[:, None], (VVT.shape[0],) + (X.shape[0],)+ (VVT.shape[1], VVT.shape[2]))
+    Gj = np.matmul(VVT, shift0 - Gj) + Gj
 
     # compute error
-    g = np.broadcast_to(g[:,None], VT.shape)
-    print("g: \t {}".format(g.shape))
     tmp = np.matmul(V, g)
-    print("tmp: \t {}".format(tmp.shape))
-
-    # reduce redundancy
-    g = g[:,0,:]
-    tmp = tmp[:,0,:]
-
     errorj = np.sqrt(np.sum(tmp**2, axis=(1,2)) / np.sum(g**2, axis=(1,2)))
 
-    print("Gj: \t {}".format(Gj.shape))
-    print("errorj: \t {}".format(errorj.shape))
-    Gjf = Gj[:,0,:]
-    print("Gjf: \t {}".format(Gjf.shape))
-
-    return Gjf, errorj
+    return Gj[:,0,:], errorj
 
 
 def T_1D(mtxAry):

@@ -1,10 +1,5 @@
 import numpy as np
 import time
-from scipy.stats import multivariate_normal
-from multiprocessing import Pool, cpu_count
-from itertools import repeat
-
-from scipy.stats import gaussian_kde
 
 def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, converge_frac = 99):
 
@@ -131,42 +126,6 @@ def T_1D(mtxAry):
         return mtxAry.T
 
 #=======================================================================================================================
-
-from sklearn.neighbors import KernelDensity
-
-
-def gaussian_kde_scipy(x, data, h, weights=None):
-    """
-    Perform a multi-dimensional Gaussian kernel density estimate
-    at a given position using scipy library.
-
-    Parameters:
-    - x: array-like, shape (n_features,)
-        The position at which to evaluate the density.
-    - data: array-like, shape (n_samples, n_features)
-        The data points used to estimate the density.
-    - h: array-like, shape (n_features,)
-        The bandwidths for each dimension.
-
-    Returns:
-    - density: float
-        The estimated density at the given position.
-    """
-
-    # Remove dimensions of size 1 from ndarray (to be competible with older data format)
-    data = np.squeeze(data)
-    x = np.squeeze(x)
-
-    '''
-    kde = gaussian_kde(data, bw_method='gaussian_sigma', bw_args=h)
-    density = kde(x)
-    return density
-    '''
-
-    kde = KernelDensity(kernel='gaussian', bandwidth=h).fit(data, sample_weight=weights)
-    # exp is used because score_sample returns log likelihood
-    return np.exp(kde.score_samples(x))
-
 
 
 def vectorized_gaussian_logpdf(X, means, covariances):

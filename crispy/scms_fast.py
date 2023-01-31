@@ -56,20 +56,18 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     print(Gj.shape)
 
     def get_c(X,Gj,h):
+        # find Gaussian centered around Gj, evaulated at X
+        # broadcast to a common shape
         XX = np.broadcast_to(X, (Gj.shape[0],) + X.shape)
-        GG = np.broadcast_to(Gj, (X.shape[0],) + Gj.shape)
-        GG = np.swapaxes(GG, 0, 1)
+        GG = np.broadcast_to(Gj[:,None], (Gj.shape[0],) + X.shape)
 
+        # remove the additional dimension
         XX = np.squeeze(XX)
         GG = np.squeeze(GG)
-        print("XX: \t {}".format(XX.shape))
-        print("GG: \t {}".format(GG.shape))
 
+        # broadcast the covariance to the right dimensions
         HH = np.broadcast_to(h**2, (GG.shape[0], GG.shape[1]))
-        print("HH: \t {}".format(HH.shape))
-
-        c = np.exp(vectorized_gaussian_logpdf(XX, means=GG, covariances=HH))
-        return c
+        return np.exp(vectorized_gaussian_logpdf(XX, means=GG, covariances=HH))
 
     c = get_c(X,Gj,h)
     print("c: \t {}".format(c.shape))
@@ -247,10 +245,7 @@ def vectorized_gaussian_logpdf(X, means, covariances):
             Log probabilities
     """
 
-    # remove the extra axis
-    #X = np.squeeze(X)
-    #means = np.squeeze(means)
-
+    # add another axis to covariances to be compitable with X and mean
     covariances = covariances[:,:,None]
 
     # find the dimesions of the data

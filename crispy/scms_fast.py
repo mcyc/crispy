@@ -59,21 +59,15 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     GG = np.broadcast_to(Gj, (X.shape[0],) + Gj.shape)
     GG = np.swapaxes(GG, 0, 1)
 
-    #c = multivariate_normal.pdf(XX, mean=Gj.ravel(), cov=HH)
-
     # note X.shape[-1] should == D
     HH = np.broadcast_to(h**2, (Gj.shape[0],) + (X.shape[0],) + (X.shape[-1],))
     print("HH: \t {}".format(HH.shape))
     c = np.exp(vectorized_gaussian_logpdf(XX, means=GG, covariances=HH))
 
-    #c = gaussian_kde_scipy(Gj, X, h, weights)
-    #c = gaussian_kde_scipy(X, Gj, h)
-
     print("c: \t {}".format(c.shape))
     print("weights: {}".format(weights.shape))
 
-    # now weight the probability of each X point by the image
-    #c *= weights
+    # now weight the probability of each X point by the image (i.e., c *= weights)
     c *= np.broadcast_to(weights, c.shape)
 
     # compute mean probability of the test particle
@@ -103,24 +97,16 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     g = -np.sum(cb * u, axis=1) / n
     print("g: \t {}".format(g.shape))
 
-    #Hess = np.sum(c[:, None, None] * (np.matmul(u[:, None], T_1D(u)) - Hinv), axis=0) / n
     uT = T_1D(u)
     print("uT: \t {}".format(uT.shape))
 
     Tmu = np.matmul(u, uT)
     print("Tmu: \t {}".format(Tmu.shape))
 
-    #cc = np.broadcast_to(c[:, :, None, None], Tmu.shape)
-    #print("cc: \t {}".format(cc.shape))
-    #cTuT = cc*Tmu
-    #print("cTuT: \t {}".format(cTuT.shape))
-
-
     # no broadcasting needed for Hinv?
     yo = Tmu - Hinv
     print("yo: \t {}".format(yo.shape))
 
-    #cyo = c[None, :, None, None]*yo
     cyo = cb*yo
     print("cyo: \t {}".format(cyo.shape))
 
@@ -132,7 +118,6 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     # compute inverse of the covariance matrix
     ppj = np.broadcast_to(pj[:, None, None], Hess.shape)
     print("ppj: \t {}".format(ppj.shape))
-    #Sigmainv = -Hess/pj + np.matmul(g, T_1D(g))/pj**2
     Sigmainv = -Hess / ppj + np.matmul(g, T_1D(g)) / ppj ** 2
 
     print("Sigmainv: \t {}".format(Sigmainv.shape))
@@ -148,7 +133,6 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     ta = np.broadcast_to(ta[:, None], Gj.shape)
     print("ta: \t {}".format(ta.shape))
 
-    #shift0 = Gj + np.matmul(H, g) / ppj2
     shift0 = Gj + ta
     # compute eigenvectors with the largest eigenvalues down to D-d
     EigVal, EigVec = np.linalg.eigh(Sigmainv)
@@ -158,10 +142,8 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     print("V: \t {}".format(V.shape))
 
     # shift the test particle
-    #Gj = np.matmul(V, np.matmul(V.T, shift0 - Gj)) + Gj
     VT = T_1D(V)
     print("VT: \t {}".format(VT.shape))
-    #VVT = np.matmul(V, VT)
     # I need to check if this reverse order for the vectorization make sense
     VVT = np.matmul(VT, V)
 
@@ -170,20 +152,11 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     ka = shift0 - Gj
     print("ka: \t {}".format(ka.shape))
 
-    #Gj = np.matmul(VVT, shift0 - Gj) + Gj
     Gj = np.matmul(VVT, ka) + Gj
-
-    '''
-    #Gj = np.matmul(V, np.matmul(VT, shift0 - Gj)) + Gj
-    ba = np.matmul(VT, shift0 - Gj)
-    print("ba: \t {}".format(ba.shape))
-    Gj = np.matmul(V, ba) + Gj
-    '''
 
     # compute error
     g = np.broadcast_to(g[:,None], VT.shape)
     print("g: \t {}".format(g.shape))
-    #tmp = np.matmul(VT, g)
     tmp = np.matmul(V, g)
     print("tmp: \t {}".format(tmp.shape))
 
@@ -192,11 +165,6 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     tmp = tmp[:,0,:]
 
     errorj = np.sqrt(np.sum(tmp**2, axis=(1,2)) / np.sum(g**2, axis=(1,2)))
-    #return np.append(Gj.ravel(), [errorj])
-
-
-
-
 
     print("Gj: \t {}".format(Gj.shape))
     print("errorj: \t {}".format(errorj.shape))

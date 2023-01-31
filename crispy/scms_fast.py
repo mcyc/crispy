@@ -55,15 +55,23 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
     print(X.shape)
     print(Gj.shape)
 
-    XX = np.broadcast_to(X, (Gj.shape[0],) + X.shape)
-    GG = np.broadcast_to(Gj, (X.shape[0],) + Gj.shape)
-    GG = np.swapaxes(GG, 0, 1)
+    def get_c(X,Gj,h):
+        XX = np.broadcast_to(X, (Gj.shape[0],) + X.shape)
+        GG = np.broadcast_to(Gj, (X.shape[0],) + Gj.shape)
+        GG = np.swapaxes(GG, 0, 1)
 
-    # note X.shape[-1] should == D
-    HH = np.broadcast_to(h**2, (Gj.shape[0],) + (X.shape[0],) + (X.shape[-1],))
-    print("HH: \t {}".format(HH.shape))
-    c = np.exp(vectorized_gaussian_logpdf(XX, means=GG, covariances=HH))
+        XX = np.squeeze(XX)
+        GG = np.squeeze(GG)
+        print("XX: \t {}".format(XX.shape))
+        print("GG: \t {}".format(GG.shape))
 
+        HH = np.broadcast_to(h**2, (GG.shape[0], GG.shape[1]))
+        print("HH: \t {}".format(HH.shape))
+
+        c = np.exp(vectorized_gaussian_logpdf(XX, means=GG, covariances=HH))
+        return c
+
+    c = get_c(X,Gj,h)
     print("c: \t {}".format(c.shape))
     print("weights: {}".format(weights.shape))
 
@@ -84,11 +92,11 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
 
     print("Gj: \t {}".format(Gj.shape))
     print("X: \t {}".format(X.shape))
-    print("XX: \t {}".format(XX.shape))
+
 
     # compute gradient and Hessian
     # X can probably be fine for the operation below without broadcasting to XX
-    u = np.matmul(Hinv, (Gj - XX))/h**2
+    u = np.matmul(Hinv, (Gj - X))/h**2
     print("u: \t {}".format(u.shape))
 
     cb = np.broadcast_to(c[:, :, None, None], u.shape)
@@ -230,9 +238,9 @@ def vectorized_gaussian_logpdf(X, means, covariances):
     Args:
         X : shape (n, m, d)
             Data points
-        means : shape (n,m, d)
+        means : shape (n, m, d)
             Mean vectors
-        covariances : shape (n,m, d)
+        covariances : shape (n, m)
             Diagonal covariance matrices
     Returns:
         logpdfs : shape (n,)
@@ -240,26 +248,18 @@ def vectorized_gaussian_logpdf(X, means, covariances):
     """
 
     # remove the extra axis
-    X = np.squeeze(X)
-    means = np.squeeze(means)
+    #X = np.squeeze(X)
+    #means = np.squeeze(means)
+
+    covariances = covariances[:,:,None]
 
     # find the dimesions of the data
     d = X.shape[-1]
     constant = d * np.log(2 * np.pi)
-    #log_determinants = np.log(np.prod(covariances, axis=1))
     log_determinants = np.log(np.prod(covariances, axis=-1))
 
     deviations = X - means
     inverses = 1 / covariances
 
-    '''
-    print("constant: {}".format(constant.shape))
-    print("log_determinants: {}".format(log_determinants.shape))
-    print("deviations: {}".format(deviations.shape))
-    print("inverses: {}".format(inverses.shape))
-    '''
-
-    #return -0.5 * (constant + log_determinants +
-    #    np.sum(deviations * inverses * deviations, axis=1))
     return -0.5 * (constant + log_determinants +
         np.sum(deviations * inverses * deviations, axis=-1))

@@ -1,5 +1,6 @@
 import numpy as np
 import time
+import gaussian as gs_pyx
 
 def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, converge_frac = 99):
 
@@ -128,7 +129,13 @@ def T_1D(mtxAry):
 #=======================================================================================================================
 
 
-def vectorized_gaussian_logpdf(X, means, covariances):
+def vectorized_gaussian_logpdf(X, means, covariances, cython=True):
+    if cython:
+        return gs_pyx.vectorized_gaussian_logpdf_py(X, means, covariances)
+    else:
+        return vectorized_gaussian_logpdf_py(X, means, covariances)
+
+def vectorized_gaussian_logpdf_py(X, means, covariances):
     """
     Compute log N(x_i; mu_i, sigma_i) for each x_i, mu_i, sigma_i
     Note: this assumes the covariance matrices constructed from covariances are diagonal

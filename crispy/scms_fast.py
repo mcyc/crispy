@@ -1,6 +1,6 @@
 import numpy as np
 import time
-import gaussian as gs_pyx
+from . import gaussian as gs_pyx
 
 def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, converge_frac = 99):
 
@@ -32,9 +32,13 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
 
         itermask = np.where(error > eps)
         GjList = G[itermask]
+        print("number of walkers remaining: {}".format(len(GjList)))
         GRes, errorRes = shift_particle_vec(GjList, X, D, h, d, weights, n, H, Hinv)
+
         G[itermask] = GRes
+        #print("GRes: {}".format(GRes))
         error[itermask] = errorRes
+        #print("errorRes: {}".format(errorRes))
         pct_error = np.percentile(error, converge_frac)
         print("{0}%-tile error: {1}".format(converge_frac, pct_error))
 
@@ -131,9 +135,11 @@ def T_1D(mtxAry):
 
 def vectorized_gaussian_logpdf(X, means, covariances, cython=True):
     if cython:
-        return gs_pyx.vectorized_gaussian_logpdf_py(X, means, covariances)
+        return gs_pyx.vectorized_gaussian_logpdf(X, means, covariances)
     else:
-        return vectorized_gaussian_logpdf_py(X, means, covariances)
+        results = vectorized_gaussian_logpdf_py(X, means, covariances)
+        #return vectorized_gaussian_logpdf_py(X, means, covariances)
+        return results
 
 def vectorized_gaussian_logpdf_py(X, means, covariances):
     """

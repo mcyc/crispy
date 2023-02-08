@@ -1,19 +1,19 @@
 import numpy as np
 import time
-#from scipy.stats import multivariate_normal
-#from multiprocessing import Pool, cpu_count
 import multiprocessing as mp
-#from itertools import repeat
-
-# note: pool.starmap used here is only available in python 3.3 or newer (see below)
-# https://docs.python.org/dev/library/multiprocessing.html#multiprocessing.pool.Pool.starmap
 
 #======================================================================================================================#
 
 def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, converge_frac = 99, ncpu = None):
 
-    G = G.astype('float')
-    X = X.astype('float')
+    # use float32 to make the operation more efficient (particularly since the precision need isn't too high)
+    G = G.astype(np.float32)
+    X = X.astype(np.float32)
+    h = np.float32(h)
+    eps = np.float32(eps)
+    wweights = np.float32(wweights)
+    converge_frac = np.float32(converge_frac)
+
     n = len(X)
     m = len(G)  # x and y coordinates 2xN format
     print("n, m: {0}, {1}".format(n,m))
@@ -21,7 +21,7 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
 
     H = np.eye(D) * h**2
     Hinv = np.eye(D) / h**2
-    error = np.full(m, 1e+08)
+    error = np.full(m, 1e+08, dtype=np.float32)
 
     if wweights is None:
         weights = 1
@@ -37,9 +37,6 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
     if ncpu is None:
         ncpu = mp.cpu_count() - 1
 
-    # Create a multiprocessing Pool
-    # pool = Pool(ncpu)  # Create a multiprocessing Pool
-
     while ((pct_error > eps) & (t < maxT)):
         # loop through iterations
         t = t + 1
@@ -49,18 +46,6 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
         GjList = G[itermask]
 
         print("number of walkers remaining: {}".format(len(GjList)))
-
-        # note: In repeat(), the memory space is not created for every variable.
-        # Rather it creates only one variable and repeats the same variable.
-        '''
-        results = pool.starmap(shift_particle, zip(GjList, repeat(X), repeat(D), repeat(h), repeat(d),
-                                                     repeat(weights),repeat(n), repeat(H), repeat(Hinv)))
-        # update the results (note: there maybe a better way to unpack this list)
-        results = np.array(results)
-        GRes = results[:,0:D]
-        G[itermask] = GRes[:, None].swapaxes(1, 2)
-        error[itermask] = results[:,D]
-        '''
 
         GRes, errorRes = shift_walkers_multi(X, GjList, weights, h, H, Hinv, n, d, D, ncpu)
 
@@ -77,7 +62,6 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
     print("number of cpu to be used: {}".format(ncpu))
 
     return G
-
 
 def shift_walkers_multi(X, G, weights, h, H, Hinv, n, d, D, ncpu):
     # run shift_walkers using multiprocessing
@@ -114,25 +98,28 @@ def shift(G, shared_dict):
     H = shared_dict['H']
     Hinv = shared_dict['Hinv']
     return shift_walkers(X, G, weights, h, H, Hinv, n, d, D)
+
 def shift_walkers(X, G, weights, h, H, Hinv, n, d, D):
     # Loop through each walker. A more effecient vectorization has yet to be found when the loop is excuted
     # via multi-processing
 
     m = len(G)
-    newG = np.zeros(G.shape)
-    newErr = np.zeros(m)
+    newG = np.zeros(G.shape, dtype=np.float32)
+    newErr = np.zeros(m, dtype=np.float32)
 
     for j, Gj in enumerate(G):
         newG[j], newErr[j] = shift_particle(Gj, X, D, h, d, weights, n, H, Hinv)
     return newG, newErr
 
 def shift_particle(Gj, X, D, h, d, weights, n, H, Hinv):
-    # shift test G[j] particles
-    #c = multivariate_normal.pdf(X.reshape(X.shape[0:2]), mean=Gj.ravel(), cov=H)
+    # shift individual walkers using SCMS
+
+    # evulate the Gaussian value of all the X points at Gj
     c = np.exp(gaussian(np.squeeze(X), mean=Gj.ravel(), covariance=h**2))
 
     # now weight the probability of each X point by the image
     c = c*weights
+
     # reshape c so it can be broadcasted onto 3 dimension arrays
     c = c[:, None, None]
     pj = np.mean(c)

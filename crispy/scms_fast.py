@@ -133,7 +133,7 @@ def T_1D(mtxAry):
 #=======================================================================================================================
 
 
-def vectorized_gaussian_logpdf(X, means, covariances, cython=True):
+def vectorized_gaussian_logpdf(X, means, covariances, cython=False):
     if cython:
         return gs_pyx.vectorized_gaussian_logpdf(X, means, covariances)
     else:

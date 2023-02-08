@@ -38,8 +38,8 @@ def find_ridge(X, G, D=3, h=1.0, d=1, eps = 1e-03, maxT = 1000, wweights = None,
         GjList = G[itermask]
         print("number of walkers remaining: {}".format(len(GjList)))
 
-        #GRes, errorRes = shift_walkers(X, GjList, weights, h, H, Hinv, n, d, D)
-        GRes, errorRes = sw_pyx.shift_walkers(X, GjList, weights, h, H, Hinv, n, d, D)
+        GRes, errorRes = shift_walkers(X, GjList, weights, h, H, Hinv, n, d, D)
+        #GRes, errorRes = sw_pyx.shift_walkers(X, GjList, weights, h, H, Hinv, n, d, D)
         G[itermask] = GRes
         error[itermask] = errorRes
 
@@ -72,9 +72,11 @@ def shift_walker(X, Gj, weights, h, H, Hinv, n, d, D):
 
     # now weight the probability of each X point by the image
     c = c * weights
+
+    pj = np.mean(c)
+
     # reshape c so it can be broadcasted onto 3 dimension arrays
     c = c[:, None, None]
-    pj = np.mean(c)
 
     u = np.matmul(Hinv, (Gj - X)) / h ** 2
     g = -1 * np.sum((c * u), axis=0) / n
@@ -82,8 +84,10 @@ def shift_walker(X, Gj, weights, h, H, Hinv, n, d, D):
     # compute the Hessian matrix
     Hess = np.sum(c * (np.matmul(u, T_1D(u)) - Hinv), axis=0) / n
 
-    Sigmainv = -1 * Hess / pj + np.matmul(g, g.T) / pj ** 2
-    shift0 = Gj + np.matmul(H, g) / pj
+    #Sigmainv = -1 * Hess / pj + np.matmul(g, g.T) / pj ** 2
+    #shift0 = Gj + np.matmul(H, g) / pj
+    Sigmainv = -1 * Hess / pj + np.dot(g, g.T) / pj ** 2
+    shift0 = Gj + np.dot(H, g) / pj
 
     # Sigmainv matrices computed here are symmetric, and thus linalg.eigh is preferred
     # note that the eigenvectors in linalg.eigh is already sorted unlike linalg.eig
@@ -92,10 +96,14 @@ def shift_walker(X, Gj, weights, h, H, Hinv, n, d, D):
     # get the eigenvectors with the largest eigenvalues down to d-1
     V = EigVec[:, d:D]
 
-    VVT = np.matmul(V, V.T)
-    Gj = np.matmul(VVT, shift0 - Gj) + Gj
+    #VVT = np.matmul(V, V.T)
+    VVT = np.dot(V, V.T) # faster for 2D
 
-    tmp = np.matmul(V.T, g)
+    #Gj = np.matmul(VVT, shift0 - Gj) + Gj
+    Gj = np.dot(VVT, shift0 - Gj) + Gj # faster, and equivalent in 2D
+
+    #tmp = np.matmul(V.T, g)
+    tmp = np.dot(V.T, g) # faster, and equivalent in 2D
     errorj = np.sqrt(np.sum(tmp ** 2) / np.sum(g ** 2))
     #return Gj.ravel(), errorj
     return Gj, errorj

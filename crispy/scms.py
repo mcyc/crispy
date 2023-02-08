@@ -1,6 +1,6 @@
 import numpy as np
 import time
-from scipy.stats import multivariate_normal
+#from scipy.stats import multivariate_normal
 from multiprocessing import Pool, cpu_count
 from itertools import repeat
 
@@ -73,7 +73,8 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
 
 def shift_particle(Gj, X, D, h, d, weights, n, H, Hinv):
     # shift test G[j] particles
-    c = multivariate_normal.pdf(X.reshape(X.shape[0:2]), mean=Gj.ravel(), cov=H)
+    #c = multivariate_normal.pdf(X.reshape(X.shape[0:2]), mean=Gj.ravel(), cov=H)
+    c = np.exp(gaussian(np.squeeze(X), mean=Gj.ravel(), covariance=h**2))
 
     # now weight the probability of each X point by the image
     c = c*weights
@@ -104,7 +105,28 @@ def shift_particle(Gj, X, D, h, d, weights, n, H, Hinv):
     errorj = np.sqrt(np.sum(tmp**2) / np.sum(g**2))
     return np.append(Gj.ravel(), [errorj])
 
-
+def gaussian(X, mean, covariance):
+    """
+    Compute log N(x_i; mu, sigma) for each x_i, mu, covariance
+    Args:
+        X : shape (n, d)
+            Data points
+        means : shape (d)
+            A mean vector
+        covariances : float
+            A sigle covariance of the gaussian, same for all dimensions.
+            This calculation assume a diagnal covariance matrix with identifical elements
+    Returns:
+        logpdfs : shape (n,)
+            Log probabilities
+    """
+    d = X.shape[1]
+    constant = d * np.log(2 * np.pi)
+    log_determinants = np.log(covariance)
+    deviations = X - mean
+    inverses = 1 / covariance
+    return -0.5 * (constant + log_determinants +
+        np.sum(deviations * inverses * deviations, axis=1))
 
 def T_1D(mtxAry):
     # return an array of transposed 1D matrices

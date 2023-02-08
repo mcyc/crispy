@@ -1,8 +1,9 @@
 import numpy as np
 import time
 #from scipy.stats import multivariate_normal
-from multiprocessing import Pool, cpu_count
-from itertools import repeat
+#from multiprocessing import Pool, cpu_count
+import multiprocessing as mp
+#from itertools import repeat
 
 # note: pool.starmap used here is only available in python 3.3 or newer (see below)
 # https://docs.python.org/dev/library/multiprocessing.html#multiprocessing.pool.Pool.starmap
@@ -34,10 +35,10 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
 
     # assign the number of cpus to use if not specified:
     if ncpu is None:
-        ncpu = cpu_count() - 1
+        ncpu = mp.cpu_count() - 1
 
     # Create a multiprocessing Pool
-    pool = Pool(ncpu)  # Create a multiprocessing Pool
+    # pool = Pool(ncpu)  # Create a multiprocessing Pool
 
     while ((pct_error > eps) & (t < maxT)):
         # loop through iterations
@@ -47,16 +48,24 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
         itermask = np.where(error > eps)
         GjList = G[itermask]
 
+        print("number of walkers remaining: {}".format(len(GjList)))
+
         # note: In repeat(), the memory space is not created for every variable.
         # Rather it creates only one variable and repeats the same variable.
+        '''
         results = pool.starmap(shift_particle, zip(GjList, repeat(X), repeat(D), repeat(h), repeat(d),
                                                      repeat(weights),repeat(n), repeat(H), repeat(Hinv)))
-
         # update the results (note: there maybe a better way to unpack this list)
         results = np.array(results)
         GRes = results[:,0:D]
         G[itermask] = GRes[:, None].swapaxes(1, 2)
         error[itermask] = results[:,D]
+        '''
+
+        GRes, errorRes = shift_walkers_multi(X, GjList, weights, h, H, Hinv, n, d, D, ncpu)
+
+        G[itermask] = GRes
+        error[itermask] = errorRes
 
         pct_error = np.percentile(error, converge_frac)
         print("{0}%-tile error: {1}".format(converge_frac, pct_error))
@@ -70,6 +79,52 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
     return G
 
 
+def shift_walkers_multi(X, G, weights, h, H, Hinv, n, d, D, ncpu):
+    # run shift_walkers using multiprocessing
+    with mp.Manager() as manager:
+        shared_dict = manager.dict()
+        shared_dict['X'] = X
+        shared_dict['D'] = D
+        shared_dict['h'] = h
+        shared_dict['d'] = d
+        shared_dict['weights'] = weights
+        shared_dict['n'] = n
+        shared_dict['H'] = H
+        shared_dict['Hinv'] = Hinv
+
+        with mp.Pool(processes=ncpu) as pool:
+            results = [pool.apply_async(shift, args=(Gj, shared_dict)) for Gj in
+                       np.array_split(G, ncpu)]
+            GRes_list = [r.get()[0] for r in results]
+            errorRes_list = [r.get()[1] for r in results]
+
+        GRes = np.concatenate(GRes_list)
+        errorRes = np.concatenate(errorRes_list)
+
+        return GRes, errorRes
+
+def shift(G, shared_dict):
+    # a wrapper function around shift_walkers to be used for multi-processing
+    X = shared_dict['X']
+    D = shared_dict['D']
+    h = shared_dict['h']
+    d = shared_dict['d']
+    weights = shared_dict['weights']
+    n = shared_dict['n']
+    H = shared_dict['H']
+    Hinv = shared_dict['Hinv']
+    return shift_walkers(X, G, weights, h, H, Hinv, n, d, D)
+def shift_walkers(X, G, weights, h, H, Hinv, n, d, D):
+    # Loop through each walker. A more effecient vectorization has yet to be found when the loop is excuted
+    # via multi-processing
+
+    m = len(G)
+    newG = np.zeros(G.shape)
+    newErr = np.zeros(m)
+
+    for j, Gj in enumerate(G):
+        newG[j], newErr[j] = shift_particle(Gj, X, D, h, d, weights, n, H, Hinv)
+    return newG, newErr
 
 def shift_particle(Gj, X, D, h, d, weights, n, H, Hinv):
     # shift test G[j] particles
@@ -103,7 +158,8 @@ def shift_particle(Gj, X, D, h, d, weights, n, H, Hinv):
 
     tmp = np.matmul(V.T, g)
     errorj = np.sqrt(np.sum(tmp**2) / np.sum(g**2))
-    return np.append(Gj.ravel(), [errorj])
+    #return np.append(Gj.ravel(), [errorj])
+    return Gj, errorj
 
 def gaussian(X, mean, covariance):
     """

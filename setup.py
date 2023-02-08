@@ -22,7 +22,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.3',
-    ext_modules = cythonize("crispy/gaussian.pyx"),
+    ext_modules = cythonize(["crispy/gaussian.pyx", "crispy/shift_walkers.pyx"]),
     include_dirs=[numpy.get_include()],
     requires = ["setuptools", "wheel", "Cython"]
 )

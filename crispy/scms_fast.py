@@ -62,8 +62,9 @@ def shift_particle_vec(Gj, X, D, h, d, weights, n, H, Hinv):
         GG = np.squeeze(GG)
 
         # broadcast the covariance to the right dimensions
-        HH = np.broadcast_to(h**2, (GG.shape[0], GG.shape[1]))
-        return np.exp(vectorized_gaussian_logpdf(XX, means=GG, covariances=HH))
+        #HH = np.broadcast_to(h**2, (GG.shape[0], GG.shape[1]))
+        #return np.exp(vectorized_gaussian_logpdf(XX, means=GG, covariances=HH))
+        return np.exp(vectorized_gaussian_logpdf(XX, means=GG, covariances=h**2))
 
     # compute probability density of each X point
     c = get_c(X,Gj,h)
@@ -141,7 +142,7 @@ def vectorized_gaussian_logpdf(X, means, covariances, cython=False):
         #return vectorized_gaussian_logpdf_py(X, means, covariances)
         return results
 
-def vectorized_gaussian_logpdf_py(X, means, covariances):
+def vectorized_gaussian_logpdf_py_gen(X, means, covariances):
     """
     Compute log N(x_i; mu_i, sigma_i) for each x_i, mu_i, sigma_i
     Note: this assumes the covariance matrices constructed from covariances are diagonal
@@ -165,6 +166,38 @@ def vectorized_gaussian_logpdf_py(X, means, covariances):
     d = X.shape[-1]
     constant = d * np.log(2 * np.pi)
     log_determinants = np.log(np.prod(covariances, axis=-1))
+
+    deviations = X - means
+    inverses = 1 / covariances
+
+    return -0.5 * (constant + log_determinants +
+        np.sum(deviations * inverses * deviations, axis=-1))
+
+
+def vectorized_gaussian_logpdf_py(X, means, covariances):
+    """
+    Compute log N(x_i; mu_i, sigma_i) for each x_i, mu_i, sigma_i
+    Note: this assumes the covariance matrices constructed from covariances are diagonal
+    The n, m, d in the arguments are the number of X, mean, and data dimesions, respectively
+    Args:
+        X : shape (n, m, d)
+            Data points
+        means : shape (n, m, d)
+            Mean vectors
+        sigma : float
+            Covariances of the normal distribution in all directions (i.e., sigma^2)
+    Returns:
+        logpdfs : shape (n,)
+            Log probabilities
+    """
+
+    # add another axis to covariances to be compitable with X and mean
+    #covariances = covariances[:,:,None]
+
+    # find the dimesions of the data
+    d = X.shape[-1]
+    constant = d * np.log(2 * np.pi)
+    log_determinants = np.log(covariances)
 
     deviations = X - means
     inverses = 1 / covariances

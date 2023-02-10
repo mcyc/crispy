@@ -24,7 +24,7 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
     error = np.full(m, 1e+08, dtype=np.float32)
 
     if wweights is None:
-        weights = 1
+        weights = np.float32(1)
     else:
         weights = wweights
 
@@ -164,7 +164,7 @@ def gaussian(X, mean, covariance):
             Log probabilities
     """
     d = X.shape[1]
-    constant = d * np.log(2 * np.pi)
+    constant = d * np.log(2 * np.float32(np.pi))
     log_determinants = np.log(covariance)
     deviations = X - mean
     inverses = 1 / covariance

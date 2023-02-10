@@ -241,8 +241,7 @@ def make_skeleton(coord, refdata, rm_sml_obj = True, coord_in_xfirst=False, star
             mask = mask/mask
 
         mask = mask.astype('int')
-
-        print num
+        print(num)
 
     return mask
 
@@ -310,7 +309,7 @@ def branchedPoints(skel, endpt = None):
 
     # if no end-points are defined, find the end-points first and remove them
     if endpt is None:
-        print "calculating end points..."
+        print("calculating end points...")
         endpt = endPoints(skel)
 
     pt = np.logical_and(pt, np.logical_not(endpt))
@@ -332,7 +331,7 @@ def bodyPoints(skel):
         base_block[1,1,1] = 1
 
     else:
-        print "[ERROR] the skeleton is neither 2 or 3 dimensions in size!"
+        print("[ERROR] the skeleton is neither 2 or 3 dimensions in size!")
         return None
 
     ptList = []
@@ -386,7 +385,7 @@ def endPoints(skel):
         cent_idx = (1,1,1)
 
     else:
-        print "[ERROR] the skeleton is neither 2 or 3 dimensions in size!"
+        print("[ERROR] the skeleton is neither 2 or 3 dimensions in size!")
         return None
 
     epList = []

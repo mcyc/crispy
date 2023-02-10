@@ -1,7 +1,7 @@
 import numpy as np
 import gc
 import astropy.io.fits as fits
-import scms as scms_mul
+from . import scms as scms_mul
 from skimage.morphology import binary_dilation, binary_erosion, remove_small_holes, remove_small_objects
 from skimage.morphology import disk, skeletonize_3d, ball
 
@@ -9,6 +9,7 @@ from skimage.morphology import disk, skeletonize_3d, ball
 
 def run(image, h=1, eps=1e-03, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=None, converge_frac=99, ncpu=None,
         walkerThres=None, walker_frac=None, walker_mask=None):
+
     '''
     The wrapper for scmspy_multiproc to identify density ridges in fits images
 
@@ -44,6 +45,9 @@ def run(image, h=1, eps=1e-03, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
     :param walkerThres:
         <float> The lower intensity threshold for where the walker will be placed on the the image.
 
+    :param overmask:
+        <boolean ndarray>
+
     :return:
         Coordinates of the ridge as defined by the walkers.
     '''
@@ -77,8 +81,29 @@ def write_output(coords, fname, **kwargs):
 
 def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=None, clean_mask=True, rmSpikes=True,
                                   walker_mask=None):
+    '''
     # convert the input image into the native data format of SCMS
     # i.e., pixel coordinates (X), walker coordinates (G), image weights (weights), number of image dimensions (D)
+    
+    :param image:
+        <ndarray> the image from which CRISPy runs on
+
+    :param thres:
+        <float> the minimal value that a voxel has have to be included in the CRISPy run
+
+    :param ordXYZ:
+        <boolean> indicate whether or not the data is ordered in XYZ rather than ZYX. Also work for n-dimensional
+         equivalent. If false, the code will assume the indices is in the reverse order
+
+    :param walkerThres:
+        <float> the minimal value that a voxel has have to be have a walker placed on it
+
+    :param overmask:
+        <boolean ndarray> boolean mask to indicate which voxels to be included in the CRISPy run in addition to the
+        thres value criteria
+
+    :return:
+    '''
 
     im_shape = image.shape
     D = len(im_shape)
@@ -90,6 +115,9 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
 
     if walkerThres is None:
         walkerThres = thres * 1.1
+
+    if overmask is None:
+        overmask = np.isfinite(image)
 
     # mask the density field
     mask = image > thres
@@ -134,6 +162,7 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
     if not walker_mask is None:
         Gmask = np.logical_and(walker_mask, Gmask)
 
+
     # get indices of the grid used for KDE
     X = np.array([i[mask] for i in indices])
     X = X[np.newaxis, slice(None)].swapaxes(0, -1)
@@ -146,7 +175,6 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
     weights = image[mask]
     gc.collect()
     return X, G, weights, D
-
 
 #=======================================================================================================================
 

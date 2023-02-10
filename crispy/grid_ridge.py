@@ -241,7 +241,6 @@ def make_skeleton(coord, refdata, rm_sml_obj = True, coord_in_xfirst=False, star
             mask = mask/mask
 
         mask = mask.astype('int')
-
         print(num)
 
     return mask

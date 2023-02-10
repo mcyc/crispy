@@ -44,9 +44,9 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
 
         itermask = np.where(error > eps)
         GjList = G[itermask]
+        print "number of active walkers: {0}".format(len(GjList))
 
         print("number of walkers remaining: {}".format(len(GjList)))
-
         GRes, errorRes = shift_walkers_multi(X, GjList, weights, h, H, Hinv, n, d, D, ncpu)
 
         G[itermask] = GRes
@@ -61,7 +61,12 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
 
     print("number of cpu to be used: {}".format(ncpu))
 
-    return G
+    if return_all_G:
+        return G
+    else:
+        mask = np.where(error < eps)
+        return G[mask]
+
 
 def shift_walkers_multi(X, G, weights, h, H, Hinv, n, d, D, ncpu):
     # run shift_walkers using multiprocessing
@@ -121,7 +126,7 @@ def shift_particle(Gj, X, D, h, d, weights, n, H, Hinv):
     c = c*weights
 
     # reshape c so it can be broadcasted onto 3 dimension arrays
-    c = c[:, None, None]
+    c = c[slice(None), None, None]
     pj = np.mean(c)
 
     u = np.matmul(Hinv, (Gj - X))/h**2
@@ -138,7 +143,7 @@ def shift_particle(Gj, X, D, h, d, weights, n, H, Hinv):
     EigVal, EigVec = np.linalg.eigh(Sigmainv)
 
     # get the eigenvectors with the largest eigenvalues down to D-d (e.g., D-1 for ridge finding)
-    V = EigVec[:, d:D]
+    V = EigVec[slice(None), d:D]
 
     VVT= np.matmul(V, V.T)
     Gj = np.matmul(VVT, shift0 - Gj) + Gj

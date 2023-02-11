@@ -8,7 +8,7 @@ from skimage.morphology import disk, skeletonize_3d, ball
 ########################################################################################################################
 
 def run(image, h=1, eps=1e-03, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=None, converge_frac=99, ncpu=None,
-        walkerThres=None, walker_frac=None, walker_mask=None):
+        walkerThres=None, walker_frac=None, walker_mask=None, overmask=None):
 
     '''
     The wrapper for scmspy_multiproc to identify density ridges in fits images
@@ -52,11 +52,11 @@ def run(image, h=1, eps=1e-03, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
         Coordinates of the ridge as defined by the walkers.
     '''
 
-    if isinstance(image, basestring):
+    if isinstance(image, str):
         image = fits.getdata(image)
 
     X, G, weights, D = image2data(image, thres=thres, ordXYZ=ordXYZ, walkerThres=walkerThres, walker_frac=walker_frac,
-                                  walker_mask=walker_mask)
+                                  walker_mask=walker_mask, overmask=overmask)
 
     if crdScaling is not None:
         crdScaling = np.array(crdScaling)
@@ -80,7 +80,7 @@ def write_output(coords, fname, **kwargs):
 
 
 def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=None, clean_mask=True, rmSpikes=True,
-                                  walker_mask=None):
+                                  walker_mask=None, overmask=None):
     '''
     # convert the input image into the native data format of SCMS
     # i.e., pixel coordinates (X), walker coordinates (G), image weights (weights), number of image dimensions (D)
@@ -99,8 +99,8 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
         <float> the minimal value that a voxel has have to be have a walker placed on it
 
     :param overmask:
-        <boolean ndarray> boolean mask to indicate which voxels to be included in the CRISPy run in addition to the
-        thres value criteria
+        <boolean ndarray> boolean mask to indicate which voxels to be included in the CRISPy run.
+        When overmask is used, the thres and walkerThres parameters are ignored
 
     :return:
     '''
@@ -118,10 +118,16 @@ def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, walker_frac=
 
     if overmask is None:
         overmask = np.isfinite(image)
+        # mask the density field
+        mask = image > thres
+        mask = np.logical_and(mask, overmask)
+        Gmask = image > walkerThres
+        Gmask = np.logical_and(Gmask, overmask)
 
-    # mask the density field
-    mask = image > thres
-    Gmask = image > walkerThres
+    else:
+        mask = overmask
+        Gmask = binary_erosion(mask)
+
 
     if clean_mask:
         print("Polishing the mask to remove noisy features")

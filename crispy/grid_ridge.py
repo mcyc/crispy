@@ -71,9 +71,9 @@ def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length 
         # define the space where end points may be considered connected by 8-neighborhood in 2D and 26-neighbourhood in
         # 3D
         if refdata.ndim == 3:
-            selem = morphology.cube(5)
+            footprint = morphology.cube(5)
         elif refdata.ndim == 2:
-            selem = morphology.square(5)
+            footprint = morphology.square(5)
         else:
             print("[ERROR] the dimension of the refdata (i.e., {}) is invalid".format(refdata.ndim))
 
@@ -99,7 +99,7 @@ def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length 
                 # robust is much less efficient, but ensure the endpoints that diagonally connects distinct structures
                 # are removed
                 endpts = endPoints(skl)
-                endpts_lg =  morphology.binary_dilation(endpts, selem=selem)
+                endpts_lg =  morphology.binary_dilation(endpts, footprint=footprint)
 
                 # find where the structures are connected
                 overlap_pt = np.logical_and(endpts_lg, others)
@@ -153,7 +153,7 @@ def clean_grid_ppv(coord, refdata, coord_in_xfirst=False, start_index=1, min_len
                 # remove a pixel from the end points
                 # robust is much less efficient, but
                 endpts = endPoints(skl)
-                endpts_lg =  morphology.binary_dilation(endpts, selem=morphology.cube(5))
+                endpts_lg =  morphology.binary_dilation(endpts, footprint=morphology.cube(5))
 
                 # find where the structures are connected
                 overlap_pt = np.logical_and(endpts_lg, others)

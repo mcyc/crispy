@@ -44,15 +44,8 @@ To grid ```CRISPy``` results onto the native grid of the input image, run the fo
 
 ```
 from crispy import grid_ridge as gr
-from astropy.io import fits
 
-def grid_skel(crispyFile, imgFile, writeFile):
-    crds = gr.read_table(crispyFile)
-    img, hdr = fits.getdata(imgFile, header=True)
-    skel_cube = gr.clean_grid(crds, img, coord_in_xfirst=True, start_index=0, min_length=6, method="robust")
-    gr.write_skel(writeFile, skel_cube, header=hdr)
-
-grid_skel(crispyFile, imgFile, writeFile)
+gr.grid_skel(readFile, imgFile, writeFile)
 ```
 
-where ```crispyFile``` is the .txt results of the ```CRISPy``` run, ```imgFile``` is the .fits image file, and ```writeFile``` is the name of the gridded result in .fits format.
+where ```readFile``` is the .txt results of the ```CRISPy``` run, ```imgFile``` is the .fits image file from which ```CRISPy``` was ran on, and ```writeFile``` is the name of the gridded result in .fits format.

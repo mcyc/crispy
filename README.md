@@ -38,5 +38,21 @@ G = irf.run(fname, h=h, thres=thres)
 irf.write_output(G, savename)
 ```
 
-Where ```h``` and ```thres``` are the smoothing length and the intensity thresholds, respectively. For a start, an ```h``` value that's comparable to the resolution element of your data (e.g., the FWHM beamsize in pixel units) is recommended. The ```thres``` value should be set well above the noise level of your data, where the signal of your structures is reasonably robust.
+Where ```h``` and ```thres``` are the smoothing length and the intensity thresholds, respectively. For a start, an ```h``` value comparable to your data's resolution element (e.g., the FWHM beamsize in pixel units) is recommended. The ```thres``` value should be set well above the noise level of your data, where the signal of your structures is reasonably robust.
 
+To grid ```CRISPy``` results onto the native grid of the input image, run the following:
+
+```
+from crispy import grid_ridge as gr
+from astropy.io import fits
+
+def grid_skel(crispyFile, imgFile, writeFile):
+    crds = gr.read_table(crispyFile)
+    img, hdr = fits.getdata(imgFile, header=True)
+    skel_cube = gr.clean_grid(crds, img, coord_in_xfirst=True, start_index=0, min_length=6, method="robust")
+    gr.write_skel(writeFile, skel_cube, header=hdr)
+
+grid_skel(crispyFile, imgFile, writeFile)
+```
+
+where ```crispyFile``` is the .txt results of the ```CRISPy``` run, ```imgFile``` is the .fits image file, and ```writeFile``` is the name of the gridded result in .fits format.

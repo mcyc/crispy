@@ -21,3 +21,18 @@ To pip install a 'stable' release, run:
 ```
 pip install astro-crispy
 ```
+
+
+## Minimum Working Example
+
+To find density ridges from a .fits image (e.g., a cube) with the name ```fname``` and write the results to a .txt file with the name ```savename```, run:
+
+```
+From crispy import image_ridge_find as irf 
+
+G = irf.run(fname, h=h, thres=thres)
+irf.write_output(G, savename)
+```
+
+Where ```h``` and ```thres``` are the smoothing length and the intensity thresholds, respectively. For a start, an ```h``` value that's comparable to the resolution element of your data (e.g., the FWHM beamsize) is recommended. The ```thres``` value should be set well above the noise level of your data, where the signal of your structures is reasonably robust.
+

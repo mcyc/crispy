@@ -7,6 +7,31 @@ from astropy.io import fits
 from skimage import morphology
 from astropy.utils.console import ProgressBar
 
+#======================================================================================================================#
+# higher-level wrapper
+def grid_skel(readFile, imgFile, writeFile, **kwargs):
+    '''
+    Takes the raw CRISPy results and grid them onto a reference image (usually the image from which CRISPy ran on)
+
+    :param readFile: string
+        The .txt file name of the ungridded (raw) CRISPy results
+
+    :param imgFile: string
+        The .fits file name of the reference grid image
+
+    :param writeFile: string
+        The .fits file name to save the gridded CRISPY results
+
+    :param kwargs:
+        Keyword arguments to be passed down to the clean_grid() function
+    '''
+    kwargs_default = dict(coord_in_xfirst=True, start_index=0, min_length=6, method="robust")
+    kwargs = { **kwargs_default, **kwargs}
+
+    crds = read_table(readFile)
+    img, hdr = fits.getdata(imgFile, header=True)
+    skel_cube = clean_grid(crds, img, **kwargs)
+    write_skel(writeFile, skel_cube, header=hdr)
 
 #======================================================================================================================#
 # input and output

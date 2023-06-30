@@ -7,13 +7,13 @@ from . import scms as scms_mul
 
 ########################################################################################################################
 
-def run(fname, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=None, converge_frac=99, ncpu=None,
+def run(image, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=None, converge_frac=99, ncpu=None,
         walkerThres=None, overmask=None, min_size=9):
     '''
     The wrapper for scmspy_multiproc to identify density ridges in fits images
 
-    :param fname:
-        <string> The input fits file name of the image.
+    :param image:
+        <string or ndarray> The input fits file name of the image or the image itself
 
     :param h:
         <float> The smoothing bandwidth of the Gaussian kernel.
@@ -51,7 +51,9 @@ def run(fname, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
         Coordinates of the ridge as defined by the walkers.
     '''
 
-    image = fits.getdata(fname)
+    if isinstance(image, str):
+        image = fits.getdata(image)
+
     X, G, weights, D = image2data(image, thres=thres, ordXYZ=ordXYZ, walkerThres=walkerThres, overmask=overmask,
                                   min_size=min_size)
 

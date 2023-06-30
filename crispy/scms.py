@@ -4,7 +4,8 @@ import multiprocessing as mp
 
 #======================================================================================================================#
 
-def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, converge_frac = 99, ncpu = None):
+def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, converge_frac = 99, ncpu = None,
+               return_unconverged=True):
 
     # use float32 to make the operation more efficient (particularly since the precision need isn't too high)
     G = G.astype(np.float32)
@@ -61,7 +62,16 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
 
     print("number of cpu to be used: {}".format(ncpu))
 
-    return G
+    # find out which walkers have converged
+    #mask = np.where(error < eps)
+    mask = error < eps
+
+    if return_unconverged:
+        # return both the converged and unconverged results
+        return G[mask], G[~mask]
+    else:
+        # return only converged results
+        return G[mask]
 
 def shift_walkers_multi(X, G, weights, h, H, Hinv, n, d, D, ncpu):
     # run shift_walkers using multiprocessing

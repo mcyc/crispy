@@ -1,7 +1,7 @@
 import numpy as np
 import astropy.io.fits as fits
 from skimage import morphology
-from os.path import splitext
+from os.path import splitext, isfile
 
 from . import scms as scms_mul
 import imp
@@ -88,6 +88,12 @@ def run(image, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
         return G
 
 
+def append_suffix(fname, suffix='unconverged'):
+    # appended suffix to a given path or filename
+    name_root, extension = splitext(fname)
+    return "{}_{}{}".format(name_root, suffix, extension)
+
+
 def write_output(coords, fname, **kwargs):
     # write the SCMS output as a list of coordinates in text file
 
@@ -100,12 +106,33 @@ def write_output(coords, fname, **kwargs):
         # save unconverged results too if present
         write(coords[0], fname) # converged walkers
 
+        '''
         suffix = "unconverged"
         name_root, extension = splitext(fname)
         write(coords[1], "{}_{}{}".format(name_root, suffix, extension)) # unconverged walkers
+        '''
+        write(coords[1], append_suffix(fname)) # unconverged walkers
 
     else:
         write(coords, fname)
+
+
+def read_output(fname, get_unconverged=True):
+    # reads the walker output from crispy. Looks for unconverged file if get_unconverged is true
+
+    def read(fname):
+        coords = np.loadtxt(fname, unpack=True)
+        return np.expand_dims(coords.T, axis=-1)
+
+    # get name of the unconverged file
+    fname_uc = append_suffix(fname)
+
+    if get_unconverged:
+        return read(fname), read(fname_uc)
+
+    else:
+        return read(fname)
+
 
 def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, overmask=None, min_size=9):
     '''

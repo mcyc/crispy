@@ -32,7 +32,7 @@ pip install astro-crispy
 To find density ridges from a .fits image (e.g., a cube) with the name ```fname``` and write the results to a .txt file with the name ```savename```, run:
 
 ```
-From crispy import image_ridge_find as irf 
+from crispy import image_ridge_find as irf 
 
 G = irf.run(fname, h=h, thres=thres)
 irf.write_output(G, savename)

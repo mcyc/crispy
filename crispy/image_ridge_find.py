@@ -1,14 +1,17 @@
 import numpy as np
 import astropy.io.fits as fits
 from skimage import morphology
+from os.path import splitext, isfile
 
 from . import scms as scms_mul
+import imp
+imp.reload(scms_mul)
 
 
 ########################################################################################################################
 
 def run(image, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=None, converge_frac=99, ncpu=None,
-        walkerThres=None, overmask=None, min_size=9):
+        walkerThres=None, overmask=None, walkers=None, min_size=9, return_unconverged=True):
     '''
     The wrapper for scmspy_multiproc to identify density ridges in fits images
 
@@ -47,6 +50,12 @@ def run(image, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
     :param overmask:
         <boolean ndarray>
 
+    :param walkers:
+        <> The coordinates of the walkers to be used. If not None, it superceeds the auotmated placement of walkers
+
+    :param return_unconverged:
+        <boolean> Returns both the converged and unconvered walker if True. Else, returns only the converged walkers
+
     :return:
         Coordinates of the ridge as defined by the walkers.
     '''
@@ -57,25 +66,84 @@ def run(image, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
     X, G, weights, D = image2data(image, thres=thres, ordXYZ=ordXYZ, walkerThres=walkerThres, overmask=overmask,
                                   min_size=min_size)
 
+    if walkers is not None:
+        print("Using user provided walkers")
+        G = walkers
+
     if crdScaling is not None:
         crdScaling = np.array(crdScaling)
         X = X[:]/crdScaling[:, None]
         G = G[:]/crdScaling[:, None]
 
-    kwargs = {'eps':eps, 'maxT':maxT, 'wweights':weights, 'converge_frac':converge_frac, 'ncpu':ncpu}
+    #kwargs = {'eps':eps, 'maxT':maxT, 'wweights':weights, 'converge_frac':converge_frac, 'ncpu':ncpu}
+    kwargs = dict(eps=eps, maxT=maxT, wweights=weights, converge_frac=converge_frac, ncpu=ncpu,
+                  return_unconverged=return_unconverged)
     G = scms_mul.find_ridge(X, G, D, h, 1, **kwargs)
 
+    def scale_back(G):
+        return G[:] * crdScaling[:, None]
+
     if crdScaling is not None:
-        return G[:]*crdScaling[:, None]
+        if isinstance(G, tuple):
+            # if unconverged walkers are returned
+            print("return all")
+            return scale_back(G[0]), scale_back(G[1])
+        else:
+            # return G[:]*crdScaling[:, None]
+            return scale_back(G)
     else:
         return G
 
 
+def append_walkers(coords_1, coords_2):
+    # append walkers from coords_2 to coords_1
+    return np.append(coords_1, coords_2, axis=0)
+
+
+def append_suffix(fname, suffix='unconverged'):
+    # appended suffix to a given path or filename
+    name_root, extension = splitext(fname)
+    return "{}_{}{}".format(name_root, suffix, extension)
+
+
 def write_output(coords, fname, **kwargs):
     # write the SCMS output as a list of coordinates in text file
-    if coords.ndim !=2:
-        coords = coords.reshape(coords.shape[0:2])
-    np.savetxt(fname, coords, **kwargs)
+
+    def write(coords, savename):
+        if coords.ndim !=2:
+            coords = coords.reshape(coords.shape[0:2])
+        np.savetxt(savename, coords, **kwargs)
+
+    if isinstance(coords, tuple):
+        # save unconverged results too if present
+        write(coords[0], fname) # converged walkers
+
+        '''
+        suffix = "unconverged"
+        name_root, extension = splitext(fname)
+        write(coords[1], "{}_{}{}".format(name_root, suffix, extension)) # unconverged walkers
+        '''
+        write(coords[1], append_suffix(fname)) # unconverged walkers
+
+    else:
+        write(coords, fname)
+
+
+def read_output(fname, get_unconverged=True):
+    # reads the walker output from crispy. Looks for unconverged file if get_unconverged is true
+
+    def read(fname):
+        coords = np.loadtxt(fname, unpack=True)
+        return np.expand_dims(coords.T, axis=-1)
+
+    # get name of the unconverged file
+    fname_uc = append_suffix(fname)
+
+    if get_unconverged:
+        return read(fname), read(fname_uc)
+
+    else:
+        return read(fname)
 
 
 def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, overmask=None, min_size=9):

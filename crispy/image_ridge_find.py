@@ -11,7 +11,7 @@ imp.reload(scms_mul)
 ########################################################################################################################
 
 def run(image, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=None, converge_frac=99, ncpu=None,
-        walkerThres=None, overmask=None, min_size=9, return_unconverged=True):
+        walkerThres=None, overmask=None, walkers=None, min_size=9, return_unconverged=True):
     '''
     The wrapper for scmspy_multiproc to identify density ridges in fits images
 
@@ -50,6 +50,9 @@ def run(image, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
     :param overmask:
         <boolean ndarray>
 
+    :param walkers:
+        <> The coordinates of the walkers to be used. If not None, it superceeds the auotmated placement of walkers
+
     :param return_unconverged:
         <boolean> Returns both the converged and unconvered walker if True. Else, returns only the converged walkers
 
@@ -62,6 +65,10 @@ def run(image, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
 
     X, G, weights, D = image2data(image, thres=thres, ordXYZ=ordXYZ, walkerThres=walkerThres, overmask=overmask,
                                   min_size=min_size)
+
+    if walkers is not None:
+        print("Using user provided walkers")
+        G = walkers
 
     if crdScaling is not None:
         crdScaling = np.array(crdScaling)
@@ -86,6 +93,11 @@ def run(image, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
             return scale_back(G)
     else:
         return G
+
+
+def append_walkers(coords_1, coords_2):
+    # append walkers from coords_2 to coords_1
+    return np.append(coords_1, coords_2, axis=0)
 
 
 def append_suffix(fname, suffix='unconverged'):

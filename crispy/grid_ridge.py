@@ -199,7 +199,7 @@ def clean_grid_ppv(coord, refdata, coord_in_xfirst=False, start_index=1, min_len
             skel_cube[skl] = True
 
     # final cleaning to remove small objects
-    skel_cube = morphology.remove_small_objects(skel_cube, min_size=min_length, connectivity=2, in_place=False)
+    skel_cube = morphology.remove_small_objects(skel_cube, min_size=min_length, connectivity=2)
     return skel_cube
 
 
@@ -240,7 +240,7 @@ def make_skeleton(coord, refdata, rm_sml_obj = True, coord_in_xfirst=False, star
 
         mask = mask.astype('bool')
         # connectivity = 2 to ensure "vortex/diagonal" connection
-        mask = morphology.remove_small_objects(mask, min_size=min_length, connectivity=2, in_place=False)
+        mask = morphology.remove_small_objects(mask, min_size=min_length, connectivity=2)
 
         # label each connected structure
         # Whether to use 4- or 8- "connectivity". In 3D, 4-"connectivity" means connected pixels have to share face,

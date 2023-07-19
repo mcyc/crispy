@@ -803,7 +803,7 @@ def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths,
             main_lengths.append(1.0 * img_scale)
 
         longpath_cube[skeleton.astype(bool)] = True
-        print('spine {} added'.format(num))
+        #print('spine {} added'.format(num))
 
     return main_lengths, longpath_cube.astype(int)
 
@@ -860,8 +860,7 @@ def classify_structure(skeleton):
         BpFk_temp[SkLb != n + 1] = 0
         Lb, Num = morphology.label(BpFk_temp, connectivity=3, return_num=True)
         crdList = labCrdList(labelled=Lb, num=Num, refStructure=BpFk)
-        if crdList:
-            interpts.append(crdList)
+        interpts.append(crdList)
 
     # remove the intersection points from the original skeleton
     SkFk_bpRemoved = skeleton.copy()

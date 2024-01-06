@@ -354,6 +354,7 @@ def remove_bad_ppv_branches(labBodyPtAry, num_lab, refStructure=None, max_pp_len
             # pad the edges to so it's compatiable with walk_through_segment_3D (i.e., skeleton does not touch the edge)
             branch = np.pad(branch, 1, mode='constant', constant_values=0)
 
+            print(len(branch == 1))
             if len(branch == 1) > 1:
                 wlk_idx = walk_through_segment_3D(branch)
                 skylength = segment_len(wlk_idx, remove_axis=0)

@@ -14,7 +14,7 @@ from . import pruning
 import imp
 imp.reload(pruning)
 
-from skimage.morphology import skeletonize_3d, label
+from skimage.morphology import skeletonize_3d, label, remove_small_objects
 
 
 ########################################################################################################################
@@ -38,8 +38,10 @@ class Skeleton(object):
             if hdr is None:
                 header = hdr
 
+        # skeletonize and removing object that's less than 1 pixel in size to ensuer it's compitable with pruning
         self.skeleton_raw = skeletonize_3d(skeleton_raw).astype(bool)
-        self.skeleton_full = self.skeleton_raw
+        self.skeleton_raw = remove_small_objects(self.skeleton_raw, min_size=3, connectivity=3)
+        self.skeleton_full = self.skeleton_raw.copy()
         self.header = header
         self.dimension_num = np.size(self.skeleton_raw.shape)
         if img is not None:

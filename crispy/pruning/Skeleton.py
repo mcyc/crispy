@@ -7,9 +7,9 @@ from datetime import timedelta
 from skimage.morphology import skeletonize, skeletonize_3d, label, remove_small_objects
 from importlib import reload
 
+from . import pruning
 from .fil_finder import length as ff_length
 
-from . import pruning
 reload(pruning)
 reload(ff_length)
 
@@ -17,7 +17,7 @@ reload(ff_length)
 
 class Skeleton(object):
 
-    def __init__(self, skeleton_raw, header=None, img = None):
+    def __init__(self, skeleton_raw, header=None, img = None, min_size=3):
         '''
         :param skeleton_raw:
             [ndarray] One pixel wide filament skeleton
@@ -25,6 +25,8 @@ class Skeleton(object):
             The fits header corresponding ot the provided skeleton
         :param img:
             [ndarray] A reference image/cube for intensity weighted pruning
+        :param min_size:
+            [int] the minize size of skeleton allowed in the final output
         :return:
         '''
         # skeletonize_3d is used to ensure the input skeleton is indeed one pixel wide
@@ -43,7 +45,7 @@ class Skeleton(object):
         else:
             self.skeleton_raw = skeletonize_3d(skeleton_raw).astype(bool)
 
-        self.skeleton_raw = remove_small_objects(self.skeleton_raw, min_size=3, connectivity=3)
+        self.skeleton_raw = remove_small_objects(self.skeleton_raw, min_size=min_size, connectivity=self.ndim)
         self.skeleton_full = self.skeleton_raw.copy()
         self.header = header
         if img is not None:
@@ -66,7 +68,6 @@ class Skeleton(object):
         end = time.time()
         delta_time = end - start
         delta_time = timedelta(seconds=delta_time)
-        #print("total time used to prune the branches: {0}:{1}".format(delta_time / 60, delta_time % 60))
         print("total time used to prune the branches: {0}".format(delta_time))
 
     def save_pruned_skel(self, outpath, overwrite=True):
@@ -157,7 +158,6 @@ class Skeleton(object):
                 ff_length.main_length(self.max_path, self.edge_list, self.labelisofil, self.interpts,
                                       self.branch_properties['length'], img_scale=1.0, verbose=False,
                                       save_png=False, save_name=None)
-
         # for 3D
         elif self.ndim == 3:
             self.main_lengths, self.longpath_cube =\

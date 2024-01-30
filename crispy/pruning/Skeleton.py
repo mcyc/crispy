@@ -158,6 +158,9 @@ class Skeleton(object):
                 ff_length.main_length(self.max_path, self.edge_list, self.labelisofil, self.interpts,
                                       self.branch_properties['length'], img_scale=1.0, verbose=False,
                                       save_png=False, save_name=None)
+            # collapse all the spines onto a single image
+            self.longpath_cube = np.sum(self.longpath_cube, axis=0)
+
         # for 3D
         elif self.ndim == 3:
             self.main_lengths, self.longpath_cube =\

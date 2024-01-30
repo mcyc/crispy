@@ -124,7 +124,10 @@ def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length 
                 # robust is much less efficient, but ensure the endpoints that diagonally connects distinct structures
                 # are removed
                 endpts = endPoints(skl)
-                endpts_lg =  morphology.binary_dilation(endpts, footprint=footprint)
+                try:
+                    endpts_lg =  morphology.binary_dilation(endpts, footprint=footprint)
+                except TypeError:
+                    endpts_lg =morphology.binary_dilation(endpts, selem=footprint)
 
                 # find where the structures are connected
                 overlap_pt = np.logical_and(endpts_lg, others)
@@ -178,7 +181,10 @@ def clean_grid_ppv(coord, refdata, coord_in_xfirst=False, start_index=1, min_len
                 # remove a pixel from the end points
                 # robust is much less efficient, but
                 endpts = endPoints(skl)
-                endpts_lg =  morphology.binary_dilation(endpts, footprint=morphology.cube(5))
+                try:
+                    endpts_lg =  morphology.binary_dilation(endpts, footprint=morphology.cube(5))
+                except TypeError:
+                    endpts_lg =  morphology.binary_dilation(endpts, selem=morphology.cube(5))
 
                 # find where the structures are connected
                 overlap_pt = np.logical_and(endpts_lg, others)

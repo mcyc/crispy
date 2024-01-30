@@ -4,18 +4,14 @@ import numpy as np
 from astropy.io import fits
 import time
 from datetime import timedelta
-from .fil_finder import length
+from skimage.morphology import skeletonize, skeletonize_3d, label, remove_small_objects
+from importlib import reload
 
-import imp
-imp.reload(length)
+from .fil_finder import length as ff_length
 
-# import from within the current directory
 from . import pruning
-import imp
-imp.reload(pruning)
-
-from skimage.morphology import skeletonize_3d, label, remove_small_objects
-
+reload(pruning)
+reload(ff_length)
 
 ########################################################################################################################
 
@@ -39,11 +35,17 @@ class Skeleton(object):
                 header = hdr
 
         # skeletonize and removing object that's less than 1 pixel in size to ensuer it's compitable with pruning
-        self.skeleton_raw = skeletonize_3d(skeleton_raw).astype(bool)
+
+        self.ndim = skeleton_raw.ndim
+
+        if self.ndim ==2:
+            self.skeleton_raw = skeletonize(skeleton_raw).astype(bool)
+        else:
+            self.skeleton_raw = skeletonize_3d(skeleton_raw).astype(bool)
+
         self.skeleton_raw = remove_small_objects(self.skeleton_raw, min_size=3, connectivity=3)
         self.skeleton_full = self.skeleton_raw.copy()
         self.header = header
-        self.dimension_num = np.size(self.skeleton_raw.shape)
         if img is not None:
             self.intensity_img = img
 
@@ -52,7 +54,7 @@ class Skeleton(object):
         # the run everything in one go
         start = time.time()
 
-        if remove_bad_ppv:
+        if self.ndim ==3 and remove_bad_ppv:
             self.remove_bad_branches()
         self.classify_structure()
         self.init_branch_properties(use_skylength=use_skylength)
@@ -103,9 +105,11 @@ class Skeleton(object):
             self.classify_structure()
 
         if not hasattr(self, 'intensity_img'):
-            self.branch_properties = pruning.init_branch_properties(self.labelisofil, use_skylength=use_skylength)
+            self.branch_properties = pruning.init_branch_properties(self.labelisofil, use_skylength=use_skylength,
+                                                                    ndim=self.ndim)
         else:
-            self.branch_properties = pruning.init_branch_properties(self.labelisofil, self.intensity_img, use_skylength)
+            self.branch_properties = pruning.init_branch_properties(self.labelisofil, self.intensity_img, use_skylength,
+                                                                    ndim=self.ndim)
 
 
     def pre_graph(self):
@@ -113,12 +117,12 @@ class Skeleton(object):
             self.init_branch_properties()
 
         # for 2D (currently not implemented)
-        if self.dimension_num == 2:
-            print("[ERROR]: 2D data is currently not supported")
-            return None
+        if self.ndim == 2:
+            self.edge_list, self.nodes, self.loop_edges =\
+                ff_length.pre_graph(self.labelisofil, self.branch_properties, self.interpts, self.ends)
 
         # for 3D skeleton
-        elif self.dimension_num == 3:
+        elif self.ndim == 3:
             self.edge_list, self.nodes, self.loop_edges =\
                 pruning.pre_graph_3D(self.labelisofil, self.branch_properties, self.interpts, self.ends)
         else:
@@ -128,7 +132,7 @@ class Skeleton(object):
     def longest_path(self):
         if not hasattr(self, 'edge_list'):
             self.pre_graph()
-        self.max_path, self.extremum, self.graphs = length.longest_path(edge_list=self.edge_list, nodes=self.nodes) #ff.
+        self.max_path, self.extremum, self.graphs = ff_length.longest_path(edge_list=self.edge_list, nodes=self.nodes) #ff.
 
 
     def prune_graph(self, length_thresh=0.5):
@@ -138,7 +142,7 @@ class Skeleton(object):
             self.longest_path()
 
         # note: the current implementation only works with prune_criteria='length'
-        self.labelisofil, self.edge_list, self.nodes, self.branch_properties = length.prune_graph(self.graphs, self.nodes, self.edge_list, self.max_path, self.labelisofil,
+        self.labelisofil, self.edge_list, self.nodes, self.branch_properties = ff_length.prune_graph(self.graphs, self.nodes, self.edge_list, self.max_path, self.labelisofil,
                                   self.branch_properties, self.loop_edges, prune_criteria='length',
                                   length_thresh=self.length_thresh) #ff.
 
@@ -147,13 +151,15 @@ class Skeleton(object):
         if not hasattr(self, 'length_thresh'):
             self.prune_graph()
 
-        # for 2D (currently not implemented)
-        if self.dimension_num == 2:
-            print("[ERROR]: 2D data is currently not supported")
-            return None
+        # for 2D
+        if self.ndim == 2:
+            self.main_lengths, self.longpath_cube = \
+                ff_length.main_length(self.max_path, self.edge_list, self.labelisofil, self.interpts,
+                                      self.branch_properties['length'], img_scale=1.0, verbose=False,
+                                      save_png=False, save_name=None)
 
-        # for 3D skeleton
-        elif self.dimension_num == 3:
+        # for 3D
+        elif self.ndim == 3:
             self.main_lengths, self.longpath_cube =\
                 pruning.main_length_3D(self.max_path, self.edge_list, self.labelisofil, self.interpts,
                                        self.branch_properties['length'], img_scale=1.0)

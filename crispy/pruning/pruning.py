@@ -7,8 +7,13 @@ from astropy.io import fits
 from astropy.utils.console import ProgressBar
 import copy
 import string
+from importlib import reload
 
 from .fil_finder import utilities as ff_util
+from .fil_finder import length as ff_length
+
+reload(ff_util)
+reload(ff_length)
 
 ########################################################################################################################
 
@@ -168,6 +173,58 @@ def walk_through_segment_3D(segment):
     return idx_list
 
 
+def walk_through_segment_2D(segment):
+    '''
+    :param segment: <ndarray>
+        a skeleton segment that does not contain intersections (i.e. branches)
+    :return:
+        a list of coordinate indices ordered by their relative position along the segment, start from the end closest
+        to the origin
+    '''
+    # note: this only works if the endpoints does not touch the edge
+
+    segment = copy.copy(segment)
+
+    # in case the segment contains less than 2 pixels
+    num_pix = len(segment[segment >= 1])
+    if num_pix < 1:
+        print("[ERROR]: the total number of pixels in the segment is less than 1!")
+        return None
+    if num_pix == 1:
+        z, y, x = np.argwhere(segment >= 1)[0]
+        return [(z, y, x)]
+
+    # find indicies of the endpoints
+    ept = endPoints(segment)
+    ept_idx = np.argwhere(ept)
+
+    # find the endpoint that is closest to the origin
+    if np.sum(ept_idx[0] ** 2) < np.sum(ept_idx[1] ** 2):
+        idx = ept_idx[0]
+    else:
+        idx = ept_idx[1]
+
+    z, y, x = idx
+    idx_list = [(z, y, x)]
+
+    block = segment[z - 1:z + 2, y - 1:y + 2, x - 1:x + 2]
+    block[1, 1, 1] = 0
+
+    # "walk through" the pixels in the segment
+    while len(block[block > 0]) == 1:
+        k, j, i = np.argwhere(block > 0)[0]
+        z, y, x = z + k - 1, y + j - 1, x + i - 1
+        idx_list.append((z, y, x))
+        block = segment[z - 1:z + 2, y - 1:y + 2, x - 1:x + 2]
+        block[1, 1, 1] = 0
+
+    # in case the walk was terminated due to imperfect skeletonization
+    if len(block[block > 0]) > 1:
+        print("[ERROR]: the skeleton segment is more than a pixel wide by 3-connectivity")
+        return None
+
+    return idx_list
+
 def init_lengths(labelisofil, array_offsets=None, img=None, use_skylength=True):
     '''
     3D version of the same function borrowed from Koch's FilFinder, with some modifications and hacks
@@ -271,10 +328,17 @@ def init_lengths(labelisofil, array_offsets=None, img=None, use_skylength=True):
     return branch_properties
 
 
-def init_branch_properties(labelisofil, img=None, use_skylength=True):
+def init_branch_properties(labelisofil, ndim, img=None, use_skylength=True):
     # a quick hack to integrate the fil_finder updates (version 2.0.dev887) into the code
     # note: fil_finder no longer uses init_branch_properties function
-    return init_lengths(labelisofil, img=img, use_skylength=use_skylength)
+    if ndim == 2:
+        num = len(labelisofil)
+        array_offsets = np.ones((num, 1, 2), dtype=int)
+        if img is None:
+            img = np.ones(labelisofil[0].shape)
+        return ff_length.init_lengths(labelisofil, array_offsets, img=img)
+    else:
+        return init_lengths(labelisofil, img=img, use_skylength=use_skylength)
 
 
 def segment_len(wlk_idx, remove_axis=None):
@@ -843,7 +907,8 @@ def classify_structure(skeleton):
         return crd_list
 
     # label the skeletons
-    SkLb, SkNum = morphology.label(skeleton, connectivity=3, return_num=True)
+    connectivity = skeleton.ndim #use maximum connectivity for the dimensions
+    SkLb, SkNum = morphology.label(skeleton, connectivity=connectivity, return_num=True)
 
     # acquire end-points, label them, and place them into a coordinate list
     print("getting end-points")
@@ -859,7 +924,7 @@ def classify_structure(skeleton):
     for n in range(SkNum):
         BpFk_temp = BpFk.copy()
         BpFk_temp[SkLb != n + 1] = 0
-        Lb, Num = morphology.label(BpFk_temp, connectivity=3, return_num=True)
+        Lb, Num = morphology.label(BpFk_temp, connectivity=connectivity, return_num=True)
         crdList = labCrdList(labelled=Lb, num=Num, refStructure=BpFk)
         interpts.append(crdList)
 
@@ -872,7 +937,7 @@ def classify_structure(skeleton):
     for n in range(SkNum):
         skl = SkFk_bpRemoved.copy()
         skl[SkLb != n + 1] = 0
-        labelisofil.append(morphology.label(skl, connectivity=3, return_num=False))
+        labelisofil.append(morphology.label(skl, connectivity=connectivity, return_num=False))
 
     return labelisofil, interpts, ends
 

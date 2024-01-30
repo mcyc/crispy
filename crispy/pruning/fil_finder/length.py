@@ -127,7 +127,8 @@ def skeleton_length(skeleton):
 ########################################################
 
 
-def init_lengths(labelisofil, filbranches, array_offsets, img):
+#def init_lengths(labelisofil, filbranches, array_offsets, img):
+def init_lengths(labelisofil, array_offsets, img):
     '''
 
     This is a wrapper on fil_length for running on the branches of the
@@ -138,8 +139,6 @@ def init_lengths(labelisofil, filbranches, array_offsets, img):
     labelisofil : list
         Contains individual arrays for each skeleton where the
         branches are labeled and the intersections have been removed.
-    filbranches : list
-        Contains the number of branches in each skeleton.
     array_offsets : List
         The indices of where each filament array fits in the
         original image.

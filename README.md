@@ -26,6 +26,8 @@ To pip install a 'stable' release, run:
 pip install astro-crispy
 ```
 
+Please note that the last 'stable' version is rather out of date, and installing the latest version of this repository is recommended.
+
 
 ## Minimum Working Example
 

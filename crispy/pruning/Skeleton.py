@@ -74,7 +74,7 @@ class Skeleton(object):
         if not hasattr(self, 'length_thresh'):
             self.main_length()
         # labeling the skeletons can be an useful feature in the future
-        data = self.longpath_cube
+        data = self.spines
         fits.writeto(outpath, data, self.header, overwrite=overwrite)
 
     def remove_bad_branches(self, v2pp_ratio=1.0):
@@ -154,16 +154,16 @@ class Skeleton(object):
 
         # for 2D
         if self.ndim == 2:
-            self.main_lengths, self.longpath_cube = \
+            self.main_lengths, self.spines = \
                 ff_length.main_length(self.max_path, self.edge_list, self.labelisofil, self.interpts,
                                       self.branch_properties['length'], img_scale=1.0, verbose=False,
                                       save_png=False, save_name=None)
             # collapse all the spines onto a single image
-            self.longpath_cube = np.sum(self.longpath_cube, axis=0)
+            self.spines = np.sum(self.spines, axis=0)
 
         # for 3D
         elif self.ndim == 3:
-            self.main_lengths, self.longpath_cube =\
+            self.main_lengths, self.spines =\
                 pruning.main_length_3D(self.max_path, self.edge_list, self.labelisofil, self.interpts,
                                        self.branch_properties['length'], img_scale=1.0)
 

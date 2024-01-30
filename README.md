@@ -50,6 +50,18 @@ gr.grid_skel(readFile, imgFile, writeFile)
 
 where ```readFile``` is the .txt results of the ```CRISPy``` run, ```imgFile``` is the .fits image file from which ```CRISPy``` was ran on, and ```writeFile``` is the name of the gridded result in .fits format.
 
+To prune the gridded skeletons, run the following:
+
+```
+from crispy.pruning import Skeleton
+
+skel_obj = Skeleton.Skeleton(skelFile)
+skel_obj.prune_from_scratch()
+skel_obj.save_pruned_skel(spineFile, overwrite=True)
+```
+
+where ```skelFile``` is the .fits image file of the gridded result and ```spineFile``` is the name of the pruned spine image to be saved.
+
 
 ## Tips on Input Parameters 
 

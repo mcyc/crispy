@@ -1,213 +1,53 @@
 import numpy as np
-import astropy.io.fits as fits
-from skimage import morphology
-from os.path import splitext, isfile
-
-from . import scms as scms_mul
-import imp
-imp.reload(scms_mul)
+from skimage import io, filters
+from scms import find_ridge
 
 
-########################################################################################################################
+def image_ridge_find(image_path, bandwidth=1.0, max_iter=100, tol=1e-5, n_jobs=1, wweights=None, return_unconverged=False):
+    """
+    Identify ridges in an image using the Subspace Constrained Mean Shift (SCMS) algorithm.
 
-def run(image, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=None, converge_frac=99, ncpu=None,
-        walkerThres=None, overmask=None, walkers=None, min_size=9, return_unconverged=True):
-    '''
-    The wrapper for scmspy_multiproc to identify density ridges in fits images
+    Parameters:
+    image_path : str
+        Path to the input image file.
+    bandwidth (h) : float, optional, default=1.0
+        The bandwidth parameter for the kernel density estimation. Equivalent to `h` in the original implementation.
+    max_iter (maxT) : int, optional, default=100
+        The maximum number of iterations for the SCMS algorithm. Equivalent to `maxT` in the original implementation.
+    tol (converge_frac) : float, optional, default=1e-5
+        The tolerance for convergence. The algorithm stops if the change in walker positions is below this value.
+         Equivalent to `converge_frac` in the original implementation.
+    n_jobs (ncpu) : int, optional, default=1
+        The number of jobs to run in parallel for shifting walkers. Equivalent to `ncpu` in the original implementation.
+    wweights : array-like, shape (n_samples,), optional, default=None
+        Weights for each data point. If None, equal weights are assumed. Equivalent to `wweights` in the
+        original implementation.
+    return_unconverged : bool, optional, default=False
+        If True, returns the data points that did not converge within the maximum number of iterations.
+         Equivalent to `return_unconverged` in the original implementation.
 
-    :param image:
-        <string or ndarray> The input fits file name of the image or the image itself
+    Returns:
+    ridges : array-like, shape (n_samples, 2)
+        The coordinates of the ridge points found in the image.
+    unconverged : array-like, shape (n_unconverged, 2), optional
+        The positions of the data points that did not converge if return_unconverged is True.
+    """
+    # Load and preprocess the image
+    image = io.imread(image_path, as_gray=True)
+    edges = filters.sobel(image)
+    y, x = np.nonzero(edges)
+    data = np.vstack((x, y)).T
 
-    :param h:
-        <float> The smoothing bandwidth of the Gaussian kernel.
-
-    :param eps:
-        <float> Convergence criteria for individual walkers.
-
-    :param maxT:
-        <int> The maximum number of iterations allowed for the run.
-
-    :param thres:
-        <float> The lower intensity threshold for which the image will be used to find ridges.
-
-    :param ordXYZ:
-        <bool> Whether or not to work with coordinates ordered in XYZ rather than the native python ZYX
-
-    :param crdScaling:
-        <list> Factors to scale the coordinates by during the run for each axis. The coordinates will be scaled by 1/factor for the
-        run and scaled back for the output.
-
-    :param converge_frac:
-        <int or float> The criteria to end the run in terms of the percentage of walkers that have converged.
-        (Note: occasionally some walkers have
-
-    :param ncpu:
-        <int> The number of CPUs to use. If None, defaults to n-1 where n is the number of CPUs available.
-
-    :param walkerThres:
-        <float> The lower intensity threshold for where the walker will be placed on the the image.
-
-    :param overmask:
-        <boolean ndarray>
-
-    :param walkers:
-        <> The coordinates of the walkers to be used. If not None, it superceeds the auotmated placement of walkers
-
-    :param return_unconverged:
-        <boolean> Returns both the converged and unconvered walker if True. Else, returns only the converged walkers
-
-    :return:
-        Coordinates of the ridge as defined by the walkers.
-    '''
-
-    if isinstance(image, str):
-        image = fits.getdata(image)
-
-    X, G, weights, D = image2data(image, thres=thres, ordXYZ=ordXYZ, walkerThres=walkerThres, overmask=overmask,
-                                  min_size=min_size)
-
-    if walkers is not None:
-        print("Using user provided walkers")
-        G = walkers
-
-    if crdScaling is not None:
-        crdScaling = np.array(crdScaling)
-        X = X[:]/crdScaling[:, None]
-        G = G[:]/crdScaling[:, None]
-
-    #kwargs = {'eps':eps, 'maxT':maxT, 'wweights':weights, 'converge_frac':converge_frac, 'ncpu':ncpu}
-    kwargs = dict(eps=eps, maxT=maxT, wweights=weights, converge_frac=converge_frac, ncpu=ncpu,
-                  return_unconverged=return_unconverged)
-    G = scms_mul.find_ridge(X, G, D, h, 1, **kwargs)
-
-    def scale_back(G):
-        return G[:] * crdScaling[:, None]
-
-    if crdScaling is not None:
-        if isinstance(G, tuple):
-            # if unconverged walkers are returned
-            print("return all")
-            return scale_back(G[0]), scale_back(G[1])
-        else:
-            # return G[:]*crdScaling[:, None]
-            return scale_back(G)
+    # Find ridges using SCMS
+    if return_unconverged:
+        ridges, unconverged = find_ridge(data, bandwidth=bandwidth, max_iter=max_iter, tol=tol, n_jobs=n_jobs, wweights=wweights, return_unconverged=True)
+        return ridges, unconverged
     else:
-        return G
+        ridges = find_ridge(data, bandwidth=bandwidth, max_iter=max_iter, tol=tol, n_jobs=n_jobs, wweights=wweights, return_unconverged=False)
+        return ridges
 
 
-def append_walkers(coords_1, coords_2):
-    # append walkers from coords_2 to coords_1
-    return np.append(coords_1, coords_2, axis=0)
-
-
-def append_suffix(fname, suffix='unconverged'):
-    # appended suffix to a given path or filename
-    name_root, extension = splitext(fname)
-    return "{}_{}{}".format(name_root, suffix, extension)
-
-
-def write_output(coords, fname, **kwargs):
-    # write the SCMS output as a list of coordinates in text file
-
-    def write(coords, savename):
-        if coords.ndim !=2:
-            coords = coords.reshape(coords.shape[0:2])
-        np.savetxt(savename, coords, **kwargs)
-
-    if isinstance(coords, tuple):
-        # save unconverged results too if present
-        write(coords[0], fname) # converged walkers
-
-        '''
-        suffix = "unconverged"
-        name_root, extension = splitext(fname)
-        write(coords[1], "{}_{}{}".format(name_root, suffix, extension)) # unconverged walkers
-        '''
-        write(coords[1], append_suffix(fname)) # unconverged walkers
-
-    else:
-        write(coords, fname)
-
-
-def read_output(fname, get_unconverged=True):
-    # reads the walker output from crispy. Looks for unconverged file if get_unconverged is true
-
-    def read(fname):
-        coords = np.loadtxt(fname, unpack=True)
-        return np.expand_dims(coords.T, axis=-1)
-
-    # get name of the unconverged file
-    fname_uc = append_suffix(fname)
-
-    if get_unconverged:
-        return read(fname), read(fname_uc)
-
-    else:
-        return read(fname)
-
-
-def image2data(image, thres = 0.5, ordXYZ = True, walkerThres=None, overmask=None, min_size=9):
-    '''
-
-    :param image:
-        <ndarray> the image from which CRISPy runs on
-
-    :param thres:
-        <float> the minimal value that a voxel has have to be included in the CRISPy run
-
-    :param ordXYZ:
-        <boolean> indicate whether or not the data is ordered in XYZ rather than ZYX. Also work for n-dimensional
-         equivalent. If false, the code will assume the indices is in the reverse order
-
-    :param walkerThres:
-        <float> the minimal value that a voxel has have to be have a walker placed on it
-
-    :param overmask:
-        <boolean ndarray> boolean mask to indicate which voxels to be included in the CRISPy run in addition to the
-        thres value criteria
-
-    :return:
-    '''
-    # convert the input image into the native data format of SCMS
-    # i.e., pixel coordinates (X), walker coordinates (G), image weights (weights), number of image dimensions (D)
-
-    im_shape = image.shape
-    D = len(im_shape)
-    indices = np.indices(im_shape)
-
-
-    if walkerThres is None:
-        walkerThres = thres * 1.1
-
-    if overmask is None:
-        overmask = np.isfinite(image)
-
-    # mask the density field
-    mask = image > thres
-    Gmask = image > walkerThres
-
-    mask = np.logical_and(mask, overmask)
-    Gmask = np.logical_and(Gmask, overmask)
-
-    if min_size is not None:
-        # remove structures with sizes less than min_size number of pixels
-        mask = morphology.remove_small_objects(mask, min_size=min_size, connectivity=1)
-        # ensure the walker is placed only over the masked image
-        Gmask = np.logical_and(Gmask, mask)
-
-
-    if ordXYZ:
-        # order it in X, Y, Z instead of Z, Y, X
-        indices = np.flip(indices, 0)
-
-    # get indices of the grid used for KDE
-    X = np.array([i[mask] for i in indices])
-    X = X[np.newaxis, :].swapaxes(0, -1)
-
-    # get indices of the test points
-    G = np.array([i[Gmask] for i in indices])
-    G = G[np.newaxis, :].swapaxes(0, -1)
-
-    # get masked image
-    weights = image[mask]
-    return X, G, weights, D
+# Example usage
+if __name__ == "__main__":
+    ridges = image_ridge_find("path/to/image.png", bandwidth=1.5, max_iter=150, tol=1e-4, n_jobs=4)
+    print("Ridge points found:", ridges)

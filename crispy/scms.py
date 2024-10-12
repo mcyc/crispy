@@ -1,6 +1,8 @@
 import numpy as np
 import time
+import sys
 import multiprocessing as mp
+from sklearn.neighbors import KernelDensity
 
 #======================================================================================================================#
 
@@ -41,29 +43,22 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
     while ((pct_error > eps) & (t < maxT)):
         # loop through iterations
         t = t + 1
-        print("-------- iteration {0} --------".format(t))
 
-        itermask = np.where(error > eps)
+        itermask = error > eps
         GjList = G[itermask]
 
-        print("number of walkers remaining: {}".format(len(GjList)))
+        if t%10 == 0:
+            print("-------- iteration {0} --------".format(t))
+            print("number of walkers remaining: {}".format(len(GjList)))
 
-        GRes, errorRes = shift_walkers_multi(X, GjList, weights, h, H, Hinv, n, d, D, ncpu)
+        GRes, errorRes = shift_particles(GjList, X, D, h, d, weights, n, H, Hinv)
 
         G[itermask] = GRes
         error[itermask] = errorRes
 
         pct_error = np.percentile(error, converge_frac)
-        print("{0}%-tile error: {1}".format(converge_frac, pct_error))
+        #print("{0}%-tile error: {1}".format(converge_frac, pct_error))
 
-        elapsed_time = time.time() - start_time
-        # print elapsed_time
-        print(time.strftime("%H:%M:%S", time.gmtime(elapsed_time)))
-
-    print("number of cpu to be used: {}".format(ncpu))
-
-    # find out which walkers have converged
-    #mask = np.where(error < eps)
     mask = error < eps
 
     if return_unconverged:
@@ -73,114 +68,101 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
         # return only converged results
         return G[mask]
 
-def shift_walkers_multi(X, G, weights, h, H, Hinv, n, d, D, ncpu):
-    # run shift_walkers using multiprocessing
-    with mp.Manager() as manager:
-        shared_dict = manager.dict()
-        shared_dict['X'] = X
-        shared_dict['D'] = D
-        shared_dict['h'] = h
-        shared_dict['d'] = d
-        shared_dict['weights'] = weights
-        shared_dict['n'] = n
-        shared_dict['H'] = H
-        shared_dict['Hinv'] = Hinv
 
-        with mp.Pool(processes=ncpu) as pool:
-            results = [pool.apply_async(shift, args=(Gj, shared_dict)) for Gj in
-                       np.array_split(G, ncpu)]
-            GRes_list = [r.get()[0] for r in results]
-            errorRes_list = [r.get()[1] for r in results]
 
-        GRes = np.concatenate(GRes_list)
-        errorRes = np.concatenate(errorRes_list)
-
-        return GRes, errorRes
-
-def shift(G, shared_dict):
-    # a wrapper function around shift_walkers to be used for multi-processing
-    X = shared_dict['X']
-    D = shared_dict['D']
-    h = shared_dict['h']
-    d = shared_dict['d']
-    weights = shared_dict['weights']
-    n = shared_dict['n']
-    H = shared_dict['H']
-    Hinv = shared_dict['Hinv']
-    return shift_walkers(X, G, weights, h, H, Hinv, n, d, D)
-
-def shift_walkers(X, G, weights, h, H, Hinv, n, d, D):
-    # Loop through each walker. A more effecient vectorization has yet to be found when the loop is excuted
-    # via multi-processing
-
-    m = len(G)
-    newG = np.zeros(G.shape, dtype=np.float32)
-    newErr = np.zeros(m, dtype=np.float32)
-
-    for j, Gj in enumerate(G):
-        newG[j], newErr[j] = shift_particle(Gj, X, D, h, d, weights, n, H, Hinv)
-    return newG, newErr
-
-def shift_particle(Gj, X, D, h, d, weights, n, H, Hinv):
+def shift_particles(G, X, D, h, d, weights, n, H, Hinv):
     # shift individual walkers using SCMS
 
-    # evulate the Gaussian value of all the X points at Gj
-    c = np.exp(gaussian(np.squeeze(X), mean=Gj.ravel(), covariance=h**2))
+    # compute the gaussian
+    c = vectorized_gaussian(X, G, h)
+    c = c * weights
 
-    # now weight the probability of each X point by the image
-    c = c*weights
+    # Compute the mean probability
+    pj = np.mean(c, axis=1)
 
-    # reshape c so it can be broadcasted onto 3 dimension arrays
-    c = c[:, None, None]
-    pj = np.mean(c)
+    # Expand dimensions for X and G to enable broadcasting for pairwise differences
+    X_expanded = X[None, :, :, :]  # Shape (1, 7507, 2, 1)
+    G_expanded = G[:, None, :, :]  # Shape (2179, 1, 2, 1)
 
-    u = np.matmul(Hinv, (Gj - X))/h**2
-    g = -1*np.sum((c * u),axis=0)/n
+    # Compute u for all walker points in G and all points in X
+    u = np.matmul(Hinv, (G_expanded - X_expanded)) / h ** 2  # Shape (2179, 7507, 2, 1)
 
-    # compute the Hessian matrix
-    Hess = np.sum(c * (np.matmul(u, T_1D(u)) - Hinv), axis=0) / n
+    # Compute g for all walker points in G
+    c_expanded = c[:, :, None, None]  # Shape (2179, 7507, 1, 1) for broadcasting with u
+    g = -1 * np.sum(c_expanded * u, axis=1) / n  # Shape (2179, 2, 1)
 
-    Sigmainv = -1*Hess/pj + np.matmul(g, g.T)/pj**2
-    shift0 = Gj + np.matmul(H, g) / pj
+    # Compute the Hessian matrix for all walker points in G
+    u_T = np.transpose(u, axes=(0, 1, 3, 2))  # Transpose u for broadcasting, shape (2179, 7507, 1, 2)
+    Hess = np.sum(c_expanded * (np.matmul(u, u_T) - Hinv), axis=1) / n  # Shape (2179, 2, 2)
 
-    # Sigmainv matrices computed here are symmetric, and thus linalg.eigh is preferred
-    # note that the eigenvectors in linalg.eigh is already sorted unlike linalg.eig
+    # Expand dimensions for pj
+    pj = pj[:,None, None]
+
+    Sigmainv = -1 * Hess / pj +\
+               np.matmul(g, np.transpose(g, axes=(0, 2, 1))) / pj** 2
+
+    # Compute the shift for each walker point
+    shift0 = G + np.matmul(H, g) / pj
+
+    # Eigen decomposition for Sigmainv for each walker point
     EigVal, EigVec = np.linalg.eigh(Sigmainv)
 
-    # get the eigenvectors with the largest eigenvalues down to D-d (e.g., D-1 for ridge finding)
-    V = EigVec[:, d:D]
+    # Get the eigenvectors with the largest eigenvalues for each walker point
+    V = EigVec[:, :, d:D]
 
-    VVT= np.matmul(V, V.T)
-    Gj = np.matmul(VVT, shift0 - Gj) + Gj
+    # Compute VVT for each walker point
+    VVT = np.matmul(V, np.transpose(V, axes=(0, 2, 1)))
 
-    tmp = np.matmul(V.T, g)
-    errorj = np.sqrt(np.sum(tmp**2) / np.sum(g**2))
-    #return np.append(Gj.ravel(), [errorj])
-    return Gj, errorj
+    # Update G for each walker point
+    G = np.matmul(VVT, (shift0 - G)) + G
+
+    # Compute the error term for each walker point
+    tmp = np.matmul(np.transpose(V, axes=(0, 2, 1)), g)
+    error = np.sqrt(np.sum(tmp ** 2, axis=(1, 2)) / np.sum(g ** 2, axis=(1, 2)))
+
+    return G, error
+
+
+
+
+def vectorized_gaussian(X, G, h):
+    """
+    Compute the Gaussian exponential efficiently for each walker in G against each point in X.
+
+    Parameters:
+    X : ndarray
+        Array of data points with shape (n, 2, 1).
+    G : ndarray
+        Array of walkers with shape (m, 2, 1).
+    h : float
+        Scalar value representing the covariance (assumes isotropic covariance).
+
+    Returns:
+    c : ndarray
+        Array of computed Gaussian exponentials with shape (m, n).
+    """
+    # Reshape X to shape (n, 2)
+    X_squeezed = np.squeeze(X, axis=-1)
+
+    # Reshape G to shape (m, 2)
+    G_squeezed = np.squeeze(G, axis=-1)
+
+    # Compute differences for all combinations of G and X
+    diff = G_squeezed[:, np.newaxis, :] - X_squeezed[np.newaxis, :, :]  # Shape: (m, n, 2)
+
+    # Compute the inverse covariance (assumes h is scalar)
+    inv_cov = 1 / (h**2)
+
+    # Calculate the exponent for the Gaussian function
+    exponent = -0.5 * np.sum(diff**2 * inv_cov, axis=-1)  # Shape: (m, n)
+
+    # Compute the Gaussian exponential
+    c = np.exp(exponent)  # Shape: (m, n)
+
+    return c
+
 
 def gaussian(X, mean, covariance):
-    """
-    Compute log N(x_i; mu, sigma) for each x_i, mu, covariance
-    Args:
-        X : shape (n, d)
-            Data points
-        means : shape (d)
-            A mean vector
-        covariances : float
-            A sigle covariance of the gaussian, same for all dimensions.
-            This calculation assume a diagnal covariance matrix with identifical elements
-    Returns:
-        logpdfs : shape (n,)
-            Log probabilities
-    """
-    d = X.shape[1]
-    constant = d * np.log(2 * np.float32(np.pi))
-    log_determinants = np.log(covariance)
-    deviations = X - mean
-    inverses = 1 / covariance
-    return -0.5 * (constant + log_determinants +
-        np.sum(deviations * inverses * deviations, axis=1))
-
-def T_1D(mtxAry):
-    # return an array of transposed 1D matrices
-    return np.transpose(mtxAry, axes=(0,2,1))
+    inv_cov = 1 / covariance
+    diff = X - mean
+    return -0.5 * np.sum(diff**2 * inv_cov, axis=-1)

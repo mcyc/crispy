@@ -28,6 +28,10 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, wweights=None, converg
     else:
         weights = wweights
 
+    print("==========================================================================")
+    print(f"Starting the run. The number of image points and walkers  are {n} and {m}")
+    print("==========================================================================")
+
     # start timing
     start_time = time.time()
     last_print_time = start_time

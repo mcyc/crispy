@@ -4,8 +4,8 @@ from skimage import morphology
 from os.path import splitext, isfile
 
 from . import scms as scms_mul
-import imp
-imp.reload(scms_mul)
+from importlib import reload
+reload(scms_mul)
 
 
 ########################################################################################################################

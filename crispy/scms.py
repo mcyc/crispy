@@ -1,12 +1,10 @@
 import numpy as np
 import time
 import sys
-import multiprocessing as mp
-from sklearn.neighbors import KernelDensity
 
 #======================================================================================================================#
 
-def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, converge_frac = 99, ncpu = None,
+def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, wweights=None, converge_frac=99, ncpu=None,
                return_unconverged=True):
 
     # use float32 to make the operation more efficient (particularly since the precision need isn't too high)
@@ -19,7 +17,6 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
 
     n = len(X)
     m = len(G)  # x and y coordinates 2xN format
-    print("n, m: {0}, {1}".format(n,m))
     t = 0
 
     H = np.eye(D) * h**2
@@ -33,12 +30,9 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
 
     # start timing
     start_time = time.time()
+    last_print_time = start_time
 
     pct_error = np.percentile(error, converge_frac)
-
-    # assign the number of cpus to use if not specified:
-    if ncpu is None:
-        ncpu = mp.cpu_count() - 1
 
     while ((pct_error > eps) & (t < maxT)):
         # loop through iterations
@@ -47,9 +41,15 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
         itermask = error > eps
         GjList = G[itermask]
 
-        if t%10 == 0:
-            print("-------- iteration {0} --------".format(t))
-            print("number of walkers remaining: {}".format(len(GjList)))
+        current_time = time.time()
+        if current_time - last_print_time >= 1:
+            elapsed_time = current_time - start_time
+            formatted_time = time.strftime("%H:%M:%S ", time.gmtime(elapsed_time))
+            sys.stdout.write(f"\rIteration {t}"
+                             f" | Number of walkers remaining: {len(GjList)}/{m} ({100 - len(GjList)/m*100:0.1f}% complete)"
+                             f" | {converge_frac}-percentile error: {pct_error:0.3f}"
+                             f" | total run time: {formatted_time}")
+            sys.stdout.flush()
 
         GRes, errorRes = shift_particles(GjList, X, D, h, d, weights, n, H, Hinv)
 
@@ -57,8 +57,8 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
         error[itermask] = errorRes
 
         pct_error = np.percentile(error, converge_frac)
-        #print("{0}%-tile error: {1}".format(converge_frac, pct_error))
 
+    sys.stdout.write("\n")
     mask = error < eps
 
     if return_unconverged:
@@ -67,8 +67,6 @@ def find_ridge(X, G, D=3, h=1, d=1, eps = 1e-06, maxT = 1000, wweights = None, c
     else:
         # return only converged results
         return G[mask]
-
-
 
 def shift_particles(G, X, D, h, d, weights, n, H, Hinv):
     # shift individual walkers using SCMS
@@ -96,10 +94,10 @@ def shift_particles(G, X, D, h, d, weights, n, H, Hinv):
     Hess = np.sum(c_expanded * (np.matmul(u, u_T) - Hinv), axis=1) / n  # Shape (2179, 2, 2)
 
     # Expand dimensions for pj
-    pj = pj[:,None, None]
+    pj = pj[:, None, None]
 
-    Sigmainv = -1 * Hess / pj +\
-               np.matmul(g, np.transpose(g, axes=(0, 2, 1))) / pj** 2
+    Sigmainv = -1 * Hess / pj + \
+               np.matmul(g, np.transpose(g, axes=(0, 2, 1))) / pj ** 2
 
     # Compute the shift for each walker point
     shift0 = G + np.matmul(H, g) / pj
@@ -121,9 +119,6 @@ def shift_particles(G, X, D, h, d, weights, n, H, Hinv):
     error = np.sqrt(np.sum(tmp ** 2, axis=(1, 2)) / np.sum(g ** 2, axis=(1, 2)))
 
     return G, error
-
-
-
 
 def vectorized_gaussian(X, G, h):
     """
@@ -160,7 +155,6 @@ def vectorized_gaussian(X, G, h):
     c = np.exp(exponent)  # Shape: (m, n)
 
     return c
-
 
 def gaussian(X, mean, covariance):
     inv_cov = 1 / covariance

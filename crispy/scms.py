@@ -1,8 +1,8 @@
 import numpy as np
 import time
 import sys
-import numba
 
+from . import numba_func as nb
 
 # ======================================================================================================================#
 
@@ -121,7 +121,7 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, wweights=None, converg
         # Return only converged walkers
         return G[mask]
 
-def shift_particles_none_numba(G, X, D, h, d, weights, n, H, Hinv):
+def shift_particles(G, X, D, h, d, weights, n, H, Hinv):
     """
     Shift individual walkers using the SCMS update rule.
 
@@ -152,20 +152,7 @@ def shift_particles_none_numba(G, X, D, h, d, weights, n, H, Hinv):
         Error values for each walker.
     """
 
-    '''
-    try:
-        c = vectorized_gaussian(X, G, h)
-        # Compute the mean probability for each walker
-    except AssertionError as e:
-        print("Shape of X:", X.shape)
-        print("Shape of G:", G.shape)
-        #print("Shape of c:", c.shape)
-        print("Shape of weights:", weights.shape)
-        #print("Shape of c (vectorized_gaussian output):", vectorized_gaussian(X, G, h).shape)
-        raise e
-    '''
-
-    c = vectorized_gaussian(X, G, h)
+    c = nb.vectorized_gaussian(X, G, h)
     c = c * weights
     pj = np.mean(c, axis=1)
 
@@ -173,86 +160,80 @@ def shift_particles_none_numba(G, X, D, h, d, weights, n, H, Hinv):
     G_expanded = G[:, None, :]
     X_expanded = X[None, :, :]
 
-    print("Shape of X_expanded:", X_expanded.shape)
-    print("Shape of G_expanded:", G_expanded.shape)
-
     # Compute u, the gradient of the log-density estimate for each walker
-    u = np.matmul(Hinv, (G_expanded - X_expanded).transpose(0, 2, 1)) / h ** 2
-    u = u.transpose(0, 2, 1)
+    u = np.matmul(Hinv, (G_expanded - X_expanded)) / h ** 2
 
     # Compute g, the direction vector for each walker
-    c_expanded = c[:, :, None]
+    c_expanded = c[:, :, None, None]
+
     g = -np.sum(c_expanded * u, axis=1) / n
 
     # Compute the Hessian matrix for each walker
-    u_T = u.transpose(0, 2, 1)
-    Hess = np.sum(c_expanded * (np.matmul(u[:, :, :, None], u_T[:, None, :, :]) - Hinv), axis=1) / n
+    u_T = u.transpose(0, 1, 3, 2)
+    Hess = np.sum(c_expanded * (np.matmul(u, u_T) - Hinv), axis=1) / n
 
     # Expand dimensions for broadcasting
     pj = pj[:, None, None]
     # Compute the inverse of the covariance matrix for each walker
-    Sigmainv = -Hess / pj + np.matmul(g[:, :, None], g[:, None, :]) / (pj ** 2)
+    Sigmainv = -1 * Hess / pj + \
+               np.matmul(g, np.transpose(g, axes=(0, 2, 1))) / pj ** 2
 
     # Compute the shift for each walker
-    shift0 = G + np.matmul(H, g) / pj[:, :, 0]
+    shift0 = G + np.matmul(H, g) / pj
 
     # Perform eigen decomposition to find the principal directions
     EigVal, EigVec = np.linalg.eigh(Sigmainv)
     V = EigVec[:, :, d:D]
     # Project the shift onto the subspace defined by the principal directions
     VVT = np.matmul(V, V.transpose(0, 2, 1))
-    G = np.matmul(VVT, (shift0 - G)[:, :, None])[:, :, 0] + G
 
-    # Compute the error term for each walker
-    tmp = np.matmul(V.transpose(0, 2, 1), g[:, :, None])
-    error = np.sqrt(np.sum(tmp ** 2, axis=(1, 2)) / np.sum(g ** 2, axis=(1,)))
+    # Update G for each walker point
+    G = np.matmul(VVT, (shift0 - G)) + G
+
+    # Compute the error term for each walker point
+    tmp = np.matmul(np.transpose(V, axes=(0, 2, 1)), g)
+    error = np.sqrt(np.sum(tmp ** 2, axis=(1, 2)) / np.sum(g ** 2, axis=(1, 2)))
 
     return G, error
 
 
-
-@numba.njit(parallel=True, fastmath=True)
 def vectorized_gaussian(X, G, h):
     """
-    Compute the Gaussian kernel values efficiently for each walker in G against each point in X.
+    Compute the Gaussian exponential efficiently for each walker in G against each point in X.
 
     Parameters:
     X : ndarray
-        Array of data points with shape (n, D, 1).
+        Array of data points with shape (n, 2, 1).
     G : ndarray
-        Array of walkers with shape (m, D, 1).
+        Array of walkers with shape (m, 2, 1).
     h : float
-        Bandwidth parameter for Gaussian kernel.
+        Scalar value representing the covariance (assumes isotropic covariance).
 
     Returns:
     c : ndarray
-        Array of computed Gaussian kernel values with shape (m, n).
+        Array of computed Gaussian exponentials with shape (m, n).
     """
-    # Remove the last dimension using slicing and ensure arrays are contiguous
-    X_squeezed = X[:, :, 0].copy()  # Resulting shape will be (n, D), with a contiguous copy
-    G_squeezed = G[:, :, 0].copy()  # Resulting shape will be (m, D), with a contiguous copy
+    # Reshape X to shape (n, 2)
+    X_squeezed = np.squeeze(X, axis=-1)
 
-    # Expand dimensions manually using reshaping for broadcasting compatibility
-    # Reshape G_squeezed to (m, 1, D)
-    G_expanded = G_squeezed.reshape(G_squeezed.shape[0], 1, G_squeezed.shape[1])
-    # Reshape X_squeezed to (1, n, D)
-    X_expanded = X_squeezed.reshape(1, X_squeezed.shape[0], X_squeezed.shape[1])
+    # Reshape G to shape (m, 2)
+    G_squeezed = np.squeeze(G, axis=-1)
 
-    print("Shape of X_ex:", X_expanded.shape)
-    print("Shape of G_ex:", G_expanded.shape)
+    # Compute differences for all combinations of G and X
+    diff = G_squeezed[:, np.newaxis, :] - X_squeezed[np.newaxis, :, :]  # Shape: (m, n, 2)
 
-    # Now G_expanded and X_expanded are compatible for broadcasting
-    # G_expanded: (m, 1, D), X_expanded: (1, n, D)
-    # Compute the pairwise differences between walkers and data points
-    diff = G_expanded - X_expanded  # Shape (m, n, D)
+    # Compute the inverse covariance (assumes h is scalar)
+    inv_cov = 1 / (h**2)
 
-    # Compute the inverse covariance (assumes isotropic covariance)
-    inv_cov = 1 / (h ** 2)
+    # Calculate the exponent for the Gaussian function
+    exponent = -0.5 * np.sum(diff**2 * inv_cov, axis=-1)  # Shape: (m, n)
 
-    # Calculate the exponent for the Gaussian kernel
-    exponent = -0.5 * np.sum(diff ** 2 * inv_cov, axis=-1)
-
-    # Compute the Gaussian kernel values
-    c = np.exp(exponent)  # Shape (m, n)
+    # Compute the Gaussian exponential
+    c = np.exp(exponent)  # Shape: (m, n)
 
     return c
+
+def gaussian(X, mean, covariance):
+    inv_cov = 1 / covariance
+    diff = X - mean
+    return -0.5 * np.sum(diff**2 * inv_cov, axis=-1)

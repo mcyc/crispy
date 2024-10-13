@@ -191,7 +191,7 @@ def shift_particles_masked(G, X, D, h, d, c, n, H, Hinv, mask):
     # calculate and broadcast u in the propershape
     u = np.zeros((G.shape[0], X.shape[0], D, 1))
     u[mask_indices[:, 0], mask_indices[:, 1]] =\
-        np.einsum('ij,njk->nik', Hinv, diff_selected)
+        np.einsum('ij,njk->nik', Hinv, diff_selected) #/ h**2 #h can be removed to improve efficiency?
 
     # Compute g for all walker points
     c_expanded = c[:, :, None, None]

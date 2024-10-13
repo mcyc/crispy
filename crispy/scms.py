@@ -79,7 +79,8 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
         GjList = G[itermask]
 
         # Filter out data points too far away to save computation time
-        X, c, weights = wgauss_n_filtered_points(X, GjList, h, weights, f_h=f_h)
+        X, c, weights, dist = wgauss_n_filtered_points(X, GjList, h, weights, f_h=f_h)
+        mask = dist < f_h*h
 
         ni, mi = len(X), len(GjList)
 
@@ -90,7 +91,8 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
             sys.stdout.write(f"\rIteration {t} | Data points: {ni} | Walkers remaining: {mi}/{m} ({100 - mi/m*100:0.1f}% complete) | {converge_frac}-percentile error: {pct_error:0.3f} | Total run time: {formatted_time}")
             sys.stdout.flush()
 
-        GRes, errorRes = shift_particles(GjList, X, D, h, d, c, ni, H, Hinv)
+        #GRes, errorRes = shift_particles(GjList, X, D, h, d, c, ni, H, Hinv, mask)
+        GRes, errorRes = shift_particles_masked(GjList, X, D, h, d, c, ni, H, Hinv, mask)
 
         G[itermask], error[itermask] = GRes, errorRes
         pct_error = np.percentile(error, converge_frac)
@@ -136,6 +138,7 @@ def wgauss_n_filtered_points(X, G, h, weights, f_h=8):
     # Filter out distant data
     X = X[~toofar, :, :]
     diff = diff[:, ~toofar, :]
+    dist = dist[:, ~toofar]
     weights = weights[~toofar]
 
     # Calculate the Gaussian values
@@ -143,8 +146,86 @@ def wgauss_n_filtered_points(X, G, h, weights, f_h=8):
     exponent = -0.5 * np.sum(diff**2 * inv_cov, axis=-1)
     c = np.exp(exponent)
 
-    return X, c * weights, weights
+    return X, c * weights, weights, dist
 
+def shift_particles_masked(G, X, D, h, d, c, n, H, Hinv, mask):
+    """
+    Shifts the walkers in G towards the density ridges using SCMS,
+    excluding elements outside the mask
+
+    Parameters:
+    G : ndarray
+        Coordinates of the walkers, shape (m, D, 1).
+    X : ndarray
+        Coordinates of the data points, shape (n, D, 1).
+    D : int
+        Dimension of the data points.
+    h : float
+        Smoothing bandwidth of the Gaussian kernel.
+    d : int
+        Target number of dimensions for projection.
+    c : ndarray
+        Weighted Gaussian values computed from G and X.
+    n : int
+        Number of data points.
+    H : ndarray
+        Covariance matrix for the Gaussian kernel.
+    Hinv : ndarray
+        Inverse of the covariance matrix.
+
+    Returns:
+    G_updated : ndarray
+        Updated coordinates of the walkers.
+    error : ndarray
+        Error term for each walker.
+    """
+
+    # Compute mean probability
+    pj = np.mean(c, axis=1)
+
+    # Expand dimensions for broadcasting
+
+    # compute u
+    mask_indices = np.argwhere(mask)
+    diff_selected = G[mask_indices[:, 0]] - X[mask_indices[:, 1]]
+    # calculate and broadcast u in the propershape
+    u = np.zeros((G.shape[0], X.shape[0], D, 1))
+    u[mask_indices[:, 0], mask_indices[:, 1]] =\
+        np.einsum('ij,njk->nik', Hinv, diff_selected)
+
+    # Compute g for all walker points
+    c_expanded = c[:, :, None, None]
+    g = -1 * np.sum(c_expanded * u, axis=1) / n
+
+    # Compute the Hessian matrix for all walker points
+    u_T = np.transpose(u, axes=(0, 1, 3, 2))
+    Hess = np.sum(c_expanded * (np.matmul(u, u_T) - Hinv), axis=1) / n
+
+    # Expand dimensions for pj
+    pj = pj[:, None, None]
+
+    Sigmainv = -1 * Hess / pj + np.matmul(g, np.transpose(g, axes=(0, 2, 1))) / pj**2
+
+    # Compute the shift for each walker
+    shift0 = G + np.matmul(H, g) / pj
+
+    # Eigen decomposition for Sigmainv
+    EigVal, EigVec = np.linalg.eigh(Sigmainv)
+
+    # Get the eigenvectors with the largest eigenvalues
+    V = EigVec[:, :, d:D]
+
+    # Compute VVT
+    VVT = np.matmul(V, np.transpose(V, axes=(0, 2, 1)))
+
+    # Update G for each walker
+    G = np.matmul(VVT, (shift0 - G)) + G
+
+    # Compute the error term
+    tmp = np.matmul(np.transpose(V, axes=(0, 2, 1)), g)
+    error = np.sqrt(np.sum(tmp**2, axis=(1, 2)) / np.sum(g**2, axis=(1, 2)))
+
+    return G, error
 
 def shift_particles(G, X, D, h, d, c, n, H, Hinv):
     """

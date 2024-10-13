@@ -75,8 +75,8 @@ def run(image, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
         X = X[:]/crdScaling[:, None]
         G = G[:]/crdScaling[:, None]
 
-    #kwargs = {'eps':eps, 'maxT':maxT, 'wweights':weights, 'converge_frac':converge_frac, 'ncpu':ncpu}
-    kwargs = dict(eps=eps, maxT=maxT, wweights=weights, converge_frac=converge_frac, ncpu=ncpu,
+    #kwargs = {'eps':eps, 'maxT':maxT, 'weights':weights, 'converge_frac':converge_frac, 'ncpu':ncpu}
+    kwargs = dict(eps=eps, maxT=maxT, weights=weights, converge_frac=converge_frac, ncpu=ncpu,
                   return_unconverged=return_unconverged)
     G = scms_mul.find_ridge(X, G, D, h, 1, **kwargs)
 

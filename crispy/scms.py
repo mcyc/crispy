@@ -188,23 +188,20 @@ def shift_particles_masked(G, X, D, h, d, c, n, H, Hinv, mask):
     mask_indices = np.argwhere(mask)  # (k, 2) where k is the number of True values in mask
     diff_selected = G[mask_indices[:, 0]] - X[mask_indices[:, 1]]  # (k, D, 1)
 
-    # Calculate u using the selected elements
-    u = np.zeros((G.shape[0], X.shape[0], G.shape[1], 1))  # (m, n, D, 1)
-    u[mask_indices[:, 0], mask_indices[:, 1]] = np.einsum('ij,njk->nik', Hinv, diff_selected)  # /h**2
+    # Compute u directly without creating the intermediate step
+    u_diff = np.einsum('ij,njk->nik', Hinv, diff_selected)  # (k, D, 1) #/h**2 still needed?
 
     # Compute g for selected walker points using the mask
     c_selected = c[mask_indices[:, 0], mask_indices[:, 1]]  # (k,)
     g = np.zeros((G.shape[0], G.shape[1], 1))  # (m, D, 1)
-    np.add.at(g, mask_indices[:, 0],
-              -1 * c_selected[:, None, None] * u[mask_indices[:, 0], mask_indices[:, 1]] / X.shape[0])
+    np.add.at(g, mask_indices[:, 0], -1 * c_selected[:, None, None] * u_diff / X.shape[0])
 
-    # note, the above h can be removed to improve efficiency?
-    u_T = np.transpose(u, axes=(0, 1, 3, 2))  # (m, n, 1, D)
-    product = np.matmul(u, u_T) - Hinv  # (m, n, D, D) where required by mask
+    # Compute u_diff.T @ u_diff using einsum to avoid explicit transpose and matmul
+    product = np.einsum('nik,njk->nij', u_diff, u_diff) - Hinv  # (k, D, D)
 
+    # Update Hessian matrix
     Hess = np.zeros((G.shape[0], G.shape[1], G.shape[1]))  # (m, D, D)
-    np.add.at(Hess, mask_indices[:, 0],
-              c_selected[:, None, None] * product[mask_indices[:, 0], mask_indices[:, 1]] / X.shape[0])
+    np.add.at(Hess, mask_indices[:, 0], c_selected[:, None, None] * product / X.shape[0])
 
     # Expand dimensions for pj
     pj = pj[:, None, None]  # (m, 1, 1)

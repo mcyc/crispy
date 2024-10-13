@@ -48,7 +48,7 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, wweights=None, converg
         # filter out X points that are too far to save computing time
         X, c, weights = filter_image_points(X, GjList, h, weights, f_h)
 
-        ni, mi = len(X), len(G)
+        ni, mi = len(X), len(GjList)
 
         current_time = time.time()
         if current_time - last_print_time >= 1:
@@ -81,7 +81,6 @@ def filter_image_points(X, G, h, weights, f_h=8):
     # return X and weighted Gaussian, c, filtered by distances relative to h
 
     # get the weighted Gaussian and distances
-    #c, dist = get_weighted_gauss(X, G, h, weights)
     c, dist = vectorized_gaussian(X, G, h)
 
     # find X points that are 8*h away from any walkers
@@ -90,11 +89,10 @@ def filter_image_points(X, G, h, weights, f_h=8):
     return X[~toofar, :, :], c[:, ~toofar]*weights[~toofar], weights[~toofar]
 
 
-
-#def shift_particles(G, X, D, h, d, weights, n, H, Hinv):
 def shift_particles(G, X, D, h, d, c, n, H, Hinv):
     # shift individual walkers using SCMS
     # c is the weighted Gaussian
+    # note: the old method used to take arguments of: G, X, D, h, d, weights, n, H, Hinv
 
     # Compute the mean probability
     pj = np.mean(c, axis=1)

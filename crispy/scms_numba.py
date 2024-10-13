@@ -1,6 +1,141 @@
 import numpy as np
 import numba
 
+
+import numpy as np
+import time
+import sys
+
+#from . import numba_func as nb
+from . import scms_numba
+
+# ======================================================================================================================#
+
+#@numba.njit(parallel=True, fastmath=True)
+def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, wweights=None, converge_frac=99.0, return_unconverged=True,
+               numba=True):
+    """
+    Find the ridge of data points using the Subspace Constrained Mean Shift (SCMS) algorithm.
+
+    Parameters:
+    X : ndarray
+        Array of data points with shape (n, D).
+    G : ndarray
+        Array of initial walkers with shape (m, D).
+    D : int, optional
+        Dimensionality of the data space (default is 3).
+    h : float, optional
+        Bandwidth parameter for Gaussian kernel (default is 1).
+    d : int, optional
+        Dimensionality of the subspace to constrain (default is 1).
+    eps : float, optional
+        Convergence threshold for error (default is 1e-06).
+    maxT : int, optional
+        Maximum number of iterations (default is 1000).
+    wweights : ndarray, optional
+        Weights for each data point in X (default is None).
+    converge_frac : float, optional
+        Fraction of walkers required to converge (default is 99.0).
+    return_unconverged : bool, optional
+        Whether to return unconverged walkers (default is True).
+
+    Returns:
+    G_converged : ndarray
+        Array of converged walker positions.
+    G_unconverged : ndarray
+        Array of unconverged walker positions (if return_unconverged is True).
+    """
+    # Convert inputs to float32 for efficiency and ensure they are little-endian
+
+    G = G.astype(np.dtype('float32').newbyteorder('<'), copy=False)
+    X = X.astype(np.dtype('float32').newbyteorder('<'), copy=False)
+    h = np.float32(h)
+    eps = np.float32(eps)
+    converge_frac = np.float32(converge_frac)
+
+    n = len(X)  # Number of data points
+    m = len(G)  # Number of walkers
+    t = 0  # Iteration counter
+
+    # Initialize covariance matrix H and its inverse
+    H = np.eye(D, dtype=np.float32) * h ** 2
+    Hinv = np.eye(D, dtype=np.float32) / h ** 2
+    error = np.full(m, 1e+08, dtype=np.float32)  # Initial large error for all walkers
+
+    # Set weights to 1 if not provided
+    weights = np.float32(1) if wweights is None else wweights.astype(np.dtype('float32').newbyteorder('<'), copy=False)
+
+    # Print initial information
+    print("==========================================================================")
+    print(f"Starting the run. The number of image points and walkers are {n} and {m}")
+    print("==========================================================================")
+
+    # Start timing
+    start_time = time.time()
+    last_print_time = start_time
+
+    pct_error = np.percentile(error, converge_frac)
+
+    # Iterate until convergence or maximum iterations reached
+    while ((pct_error > eps) & (t < maxT)):
+        # Loop through iterations
+        t += 1
+
+        # Identify walkers that have not converged
+        itermask = error > eps
+        if np.sum(itermask) == 0:
+            # All walkers have converged
+            break
+
+        # Select only the unconverged walkers
+        GjList = G[itermask]
+
+        # Print progress every second
+        current_time = time.time()
+        if current_time - last_print_time >= 1:
+            elapsed_time = current_time - start_time
+            formatted_time = time.strftime("%H:%M:%S ", time.gmtime(elapsed_time))
+            sys.stdout.write(f"\rIteration {t}"
+                             f" | Number of walkers remaining: {len(GjList)}/{m} ({100 - len(GjList) / m * 100:0.1f}% complete)"
+                             f" | {converge_frac}-percentile error: {pct_error:0.3f}"
+                             f" | total run time: {formatted_time}")
+            sys.stdout.flush()
+            last_print_time = current_time
+
+        # Shift the unconverged walkers
+        GRes, errorRes = move_walkers(GjList, X, D, h, d, weights, n, H, Hinv)
+
+        # Update the positions and errors of the unconverged walkers
+        G[itermask] = GRes
+        error[itermask] = errorRes
+
+        # Calculate the error percentile for convergence check
+        pct_error = np.percentile(error, converge_frac)
+        if pct_error <= eps:
+            # Convergence criteria met
+            break
+
+    sys.stdout.write("\n")
+
+    # Mask for converged walkers
+    mask = error < eps
+
+    if return_unconverged:
+        # Return both converged and unconverged walkers
+        return G[mask], G[~mask]
+    else:
+        # Return only converged walkers
+        return G[mask]
+
+
+@numba.njit(parallel=True, fastmath=True)
+def move_walkers(G, X, D, h, d, weights, n, H, Hinv):
+    errors = np.full(G.shape[0], 1e+08, dtype=np.float32)
+    for j, Gj in enumerate(G):
+        G[j], errors[j] = shift_particle(Gj, X, D, h, d, weights, n, H, Hinv)
+
+    return G, errors
+
 @numba.njit(parallel=False, fastmath=True)
 def shift_particle(Gj, X, D, h, d, weights, n, H, Hinv):
     # shift individual walkers using SCMS

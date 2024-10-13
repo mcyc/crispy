@@ -5,7 +5,7 @@ import sys
 #======================================================================================================================#
 
 def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, wweights=None, converge_frac=99, ncpu=None,
-               return_unconverged=True):
+               return_unconverged=True, f_h=5):
 
     # use float32 to make the operation more efficient (particularly since the precision need isn't too high)
     G = G.astype(np.float32)
@@ -16,7 +16,7 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, wweights=None, converg
     converge_frac = np.float32(converge_frac)
 
     n = len(X)
-    m = len(G)  # x and y coordinates 2xN format
+    m = len(G)
     t = 0
 
     H = np.eye(D) * h**2
@@ -45,21 +45,25 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, wweights=None, converg
         itermask = error > eps
         GjList = G[itermask]
 
+        # filter out X points that are too far to save computing time
+        X, c, weights = filter_image_points(X, GjList, h, weights, f_h)
+
+        ni, mi = len(X), len(G)
+
         current_time = time.time()
         if current_time - last_print_time >= 1:
             elapsed_time = current_time - start_time
             formatted_time = time.strftime("%H:%M:%S ", time.gmtime(elapsed_time))
             sys.stdout.write(f"\rIteration {t}"
-                             f" | Number of walkers remaining: {len(GjList)}/{m} ({100 - len(GjList)/m*100:0.1f}% complete)"
+                             f" | Data points: {ni}"
+                             f" | Walkers remaining: {mi}/{m} ({100 - mi/m*100:0.1f}% complete)"
                              f" | {converge_frac}-percentile error: {pct_error:0.3f}"
-                             f" | total run time: {formatted_time}")
+                             f" | Total run time: {formatted_time}")
             sys.stdout.flush()
 
-        GRes, errorRes = shift_particles(GjList, X, D, h, d, weights, n, H, Hinv)
+        GRes, errorRes = shift_particles(GjList, X, D, h, d, c, ni, H, Hinv)
 
-        G[itermask] = GRes
-        error[itermask] = errorRes
-
+        G[itermask], error[itermask] = GRes, errorRes
         pct_error = np.percentile(error, converge_frac)
 
     sys.stdout.write("\n")
@@ -72,12 +76,25 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, wweights=None, converg
         # return only converged results
         return G[mask]
 
-def shift_particles(G, X, D, h, d, weights, n, H, Hinv):
-    # shift individual walkers using SCMS
 
-    # compute the gaussian
-    c = vectorized_gaussian(X, G, h)
-    c = c * weights
+def filter_image_points(X, G, h, weights, f_h=8):
+    # return X and weighted Gaussian, c, filtered by distances relative to h
+
+    # get the weighted Gaussian and distances
+    #c, dist = get_weighted_gauss(X, G, h, weights)
+    c, dist = vectorized_gaussian(X, G, h)
+
+    # find X points that are 8*h away from any walkers
+    toofar = np.all(dist > f_h * h, axis=0)
+
+    return X[~toofar, :, :], c[:, ~toofar]*weights[~toofar], weights[~toofar]
+
+
+
+#def shift_particles(G, X, D, h, d, weights, n, H, Hinv):
+def shift_particles(G, X, D, h, d, c, n, H, Hinv):
+    # shift individual walkers using SCMS
+    # c is the weighted Gaussian
 
     # Compute the mean probability
     pj = np.mean(c, axis=1)
@@ -124,30 +141,35 @@ def shift_particles(G, X, D, h, d, weights, n, H, Hinv):
 
     return G, error
 
+
 def vectorized_gaussian(X, G, h):
     """
-    Compute the Gaussian exponential efficiently for each walker in G against each point in X.
+    Compute the Gaussian exponential efficiently for each walker in G against each point in X,
+    and also calculate the Euclidean distances.
 
     Parameters:
     X : ndarray
-        Array of data points with shape (n, 2, 1).
+        An array of positions to evaluate with shape (n, D, 1).
     G : ndarray
-        Array of walkers with shape (m, 2, 1).
+        An array of mean positions with shape (m, D, 1).
     h : float
         Scalar value representing the covariance (assumes isotropic covariance).
 
     Returns:
     c : ndarray
         Array of computed Gaussian exponentials with shape (m, n).
+    distances : ndarray
+        Array of Euclidean distances between each walker in G and each point in X, with shape (m, n).
     """
-    # Reshape X to shape (n, 2)
+    # Calculate the Euclidean distances between each walker in G and each point in X
     X_squeezed = np.squeeze(X, axis=-1)
-
-    # Reshape G to shape (m, 2)
     G_squeezed = np.squeeze(G, axis=-1)
 
     # Compute differences for all combinations of G and X
-    diff = G_squeezed[:, np.newaxis, :] - X_squeezed[np.newaxis, :, :]  # Shape: (m, n, 2)
+    diff = G_squeezed[:, np.newaxis, :] - X_squeezed[np.newaxis, :, :]  # Shape: (m, n, D)
+
+    # Compute the Euclidean distances
+    distances = np.linalg.norm(diff, axis=-1)  # Shape: (m, n)
 
     # Compute the inverse covariance (assumes h is scalar)
     inv_cov = 1 / (h**2)
@@ -158,9 +180,4 @@ def vectorized_gaussian(X, G, h):
     # Compute the Gaussian exponential
     c = np.exp(exponent)  # Shape: (m, n)
 
-    return c
-
-def gaussian(X, mean, covariance):
-    inv_cov = 1 / covariance
-    diff = X - mean
-    return -0.5 * np.sum(diff**2 * inv_cov, axis=-1)
+    return c, distances

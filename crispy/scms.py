@@ -6,25 +6,43 @@ import sys
 
 def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge_frac=99, ncpu=None,
                return_unconverged=True, f_h=5):
-    '''
-    Find the density ridge in the data by iteratively moving the walkers towards the ridge
-    :param X: Coordinates of the data points in the shape of (n, D, 1)
-    :param G: Coordinates of the walkers in the shape of (m, D, 1)
-    :param D: The dimension of the data
-    :param h: The smoothing bandwidth of the Gaussian kernel
-    :param d:
-    :param eps: Convergence criteria for individual walkers.
-    :param maxT: Maximum iteration for the run
-    :param weights: The weight of each data point (for an image, that's the value at each pixel)
-    :param converge_frac: The fraction of walkers converged required to end the run, in percent.
-    :param ncpu: The number of cpu to use
-    :param return_unconverged:
-    :param f_h: A factor to filter out X by their shortest distances to all data points.
-        X with distances > f_h*h are removed
-    :return:
-    '''
+    """
+    Finds the density ridge in the data by iteratively moving walkers towards the ridge.
 
-    # use float32 to make the operation more efficient (particularly since the precision need isn't too high)
+    Parameters:
+    X : ndarray
+        Coordinates of the data points, shape (n, D, 1).
+    G : ndarray
+        Coordinates of the walkers, shape (m, D, 1).
+    D : int, optional
+        Dimension of the data (default is 3).
+    h : float, optional
+        Smoothing bandwidth for the Gaussian kernel (default is 1).
+    d : int, optional
+        Number of dimensions for projection (default is 1).
+    eps : float, optional
+        Convergence criteria for individual walkers (default is 1e-06).
+    maxT : int, optional
+        Maximum number of iterations (default is 1000).
+    weights : ndarray, optional
+        Weight of each data point, or value at each pixel if dealing with images (default is None).
+    converge_frac : float, optional
+        Fraction of walkers that need to converge for the algorithm to stop, in percent (default is 99).
+    ncpu : int, optional
+        Number of CPUs to use (default is None).
+    return_unconverged : bool, optional
+        If True, returns both converged and unconverged walkers (default is True).
+    f_h : float, optional
+        Factor used to filter out data points based on distance to all other data points (default is 5).
+
+    Returns:
+    G_converged : ndarray
+        Coordinates of converged walkers.
+    G_unconverged : ndarray, optional
+        Coordinates of unconverged walkers, if return_unconverged is True.
+    """
+
+    # Convert data to float32 for efficiency
     G = G.astype(np.float32)
     X = X.astype(np.float32)
     h = np.float32(h)
@@ -44,23 +62,23 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
     error = np.full(m, 1e+08, dtype=np.float32)
 
     print("==========================================================================")
-    print(f"Starting the run. The number of image points and walkers  are {n} and {m}")
+    print(f"Starting the run. Number of data points: {n}, Number of walkers: {m}")
     print("==========================================================================")
 
-    # start timing
+    # Start timing
     start_time = time.time()
     last_print_time = start_time
 
     pct_error = np.percentile(error, converge_frac)
 
     while ((pct_error > eps) & (t < maxT)):
-        # loop through iterations
-        t = t + 1
+        # Loop through iterations
+        t += 1
 
         itermask = error > eps
         GjList = G[itermask]
 
-        # filter out X points that are too far to save computing time and evaluate the weighted Gaussian
+        # Filter out data points too far away to save computation time
         X, c, weights = wgauss_n_filtered_points(X, GjList, h, weights, f_h=f_h)
 
         ni, mi = len(X), len(GjList)
@@ -68,12 +86,8 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
         current_time = time.time()
         if current_time - last_print_time >= 1:
             elapsed_time = current_time - start_time
-            formatted_time = time.strftime("%H:%M:%S ", time.gmtime(elapsed_time))
-            sys.stdout.write(f"\rIteration {t}"
-                             f" | Data points: {ni}"
-                             f" | Walkers remaining: {mi}/{m} ({100 - mi/m*100:0.1f}% complete)"
-                             f" | {converge_frac}-percentile error: {pct_error:0.3f}"
-                             f" | Total run time: {formatted_time}")
+            formatted_time = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
+            sys.stdout.write(f"\rIteration {t} | Data points: {ni} | Walkers remaining: {mi}/{m} ({100 - mi/m*100:0.1f}% complete) | {converge_frac}-percentile error: {pct_error:0.3f} | Total run time: {formatted_time}")
             sys.stdout.flush()
 
         GRes, errorRes = shift_particles(GjList, X, D, h, d, c, ni, H, Hinv)
@@ -85,159 +99,187 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
     mask = error < eps
 
     if return_unconverged:
-        # return both the converged and unconverged results
         return G[mask], G[~mask]
     else:
-        # return only converged results
         return G[mask]
 
 
 def wgauss_n_filtered_points(X, G, h, weights, f_h=8):
-    '''
-    Computed the weighted Gaussian at positions X, with means in G, but only for X positions with distances < f_h*h from  all G
-    :param X: Coordinates of the data points in the shape of (n, D, 1)
-    :param G: Coordinates of the walkers in the shape of (m, D, 1)
-    :param h: The smoothing bandwidth of the Gaussian
-    :param weights: the weights of X in the shape of (m, D, 1)
-    :param f_h: the distance multiiple cut off for which X with minimum distances < f_h*h from all G points are filtered out
-    :return: 
-    '''
+    """
+    Computes the weighted Gaussian at positions X, with means in G, filtering out points based on distance.
 
-    # find data points too far from the walkers
+    Parameters:
+    X : ndarray
+        Coordinates of the data points, shape (n, D, 1).
+    G : ndarray
+        Coordinates of the walkers, shape (m, D, 1).
+    h : float
+        Smoothing bandwidth of the Gaussian kernel.
+    weights : ndarray
+        Weights of the data points.
+    f_h : float, optional
+        Distance multiple cutoff for filtering points (default is 8).
+
+    Returns:
+    X_filtered : ndarray
+        Filtered coordinates of the data points.
+    c : ndarray
+        Weighted Gaussian values for each data point.
+    weights_filtered : ndarray
+        Filtered weights for the data points.
+    """
+
+    # Find data points that are too far from walkers
     dist, diff = euclidean_dist(X, G)
     toofar = np.all(dist > f_h * h, axis=0)
 
-    # filter out the distant data
+    # Filter out distant data
     X = X[~toofar, :, :]
     diff = diff[:, ~toofar, :]
     weights = weights[~toofar]
 
-    # Calculate the Gaussian values:
+    # Calculate the Gaussian values
     inv_cov = 1 / (h**2)
     exponent = -0.5 * np.sum(diff**2 * inv_cov, axis=-1)
     c = np.exp(exponent)
 
-    return X, c*weights, weights
+    return X, c * weights, weights
 
 
 def shift_particles(G, X, D, h, d, c, n, H, Hinv):
     """
-    Shift individual walkers in G using SCMS towards the density ridges
-    note: the old method used to take arguments of: G, X, D, h, d, weights, n, H, Hinv
+    Shifts the walkers in G towards the density ridges using SCMS.
 
-    :param X: Coordinates of the data points in the shape of (n, D, 1)
-    :param G: Coordinates of the walkers in the shape of (m, D, 1)
-    :param D: The dimension of the data points
-    :param h: The smoothing bandwidth of the Gaussian
-    :param d:
-    :param c: the weighted Gaussian value computed from G and X
-    :param n:
-    :param H:
-    :param Hinv:
-    :return:
+    Parameters:
+    G : ndarray
+        Coordinates of the walkers, shape (m, D, 1).
+    X : ndarray
+        Coordinates of the data points, shape (n, D, 1).
+    D : int
+        Dimension of the data points.
+    h : float
+        Smoothing bandwidth of the Gaussian kernel.
+    d : int
+        Target number of dimensions for projection.
+    c : ndarray
+        Weighted Gaussian values computed from G and X.
+    n : int
+        Number of data points.
+    H : ndarray
+        Covariance matrix for the Gaussian kernel.
+    Hinv : ndarray
+        Inverse of the covariance matrix.
+
+    Returns:
+    G_updated : ndarray
+        Updated coordinates of the walkers.
+    error : ndarray
+        Error term for each walker.
     """
 
-    # Compute the mean probability
+    # Compute mean probability
     pj = np.mean(c, axis=1)
 
-    # Expand dimensions for X and G to enable broadcasting for pairwise differences
-    X_expanded = X[None, :, :, :]  # Shape (1, n, 2, 1)
-    G_expanded = G[:, None, :, :]  # Shape (m, 1, 2, 1)
+    # Expand dimensions for broadcasting
+    X_expanded = X[None, :, :, :]
+    G_expanded = G[:, None, :, :]
 
-    # Compute u for all walker points in G and all points in X
-    u = np.matmul(Hinv, (G_expanded - X_expanded)) / h ** 2  # Shape (m, n, 2, 1)
+    # Compute u for all walker points
+    u = np.matmul(Hinv, (G_expanded - X_expanded)) / h**2
 
-    # Compute g for all walker points in G
-    c_expanded = c[:, :, None, None]  # Shape (m, n, 1, 1) for broadcasting with u
-    g = -1 * np.sum(c_expanded * u, axis=1) / n  # Shape (m, 2, 1)
+    # Compute g for all walker points
+    c_expanded = c[:, :, None, None]
+    g = -1 * np.sum(c_expanded * u, axis=1) / n
 
-    # Compute the Hessian matrix for all walker points in G
-    u_T = np.transpose(u, axes=(0, 1, 3, 2))  # Transpose u for broadcasting, shape (m, n, 1, 2)
-    Hess = np.sum(c_expanded * (np.matmul(u, u_T) - Hinv), axis=1) / n  # Shape (m, 2, 2)
+    # Compute the Hessian matrix for all walker points
+    u_T = np.transpose(u, axes=(0, 1, 3, 2))
+    Hess = np.sum(c_expanded * (np.matmul(u, u_T) - Hinv), axis=1) / n
 
     # Expand dimensions for pj
     pj = pj[:, None, None]
 
-    Sigmainv = -1 * Hess / pj + \
-               np.matmul(g, np.transpose(g, axes=(0, 2, 1))) / pj ** 2
+    Sigmainv = -1 * Hess / pj + np.matmul(g, np.transpose(g, axes=(0, 2, 1))) / pj**2
 
-    # Compute the shift for each walker point
+    # Compute the shift for each walker
     shift0 = G + np.matmul(H, g) / pj
 
-    # Eigen decomposition for Sigmainv for each walker point
+    # Eigen decomposition for Sigmainv
     EigVal, EigVec = np.linalg.eigh(Sigmainv)
 
-    # Get the eigenvectors with the largest eigenvalues for each walker point
+    # Get the eigenvectors with the largest eigenvalues
     V = EigVec[:, :, d:D]
 
-    # Compute VVT for each walker point
+    # Compute VVT
     VVT = np.matmul(V, np.transpose(V, axes=(0, 2, 1)))
 
-    # Update G for each walker point
+    # Update G for each walker
     G = np.matmul(VVT, (shift0 - G)) + G
 
-    # Compute the error term for each walker point
+    # Compute the error term
     tmp = np.matmul(np.transpose(V, axes=(0, 2, 1)), g)
-    error = np.sqrt(np.sum(tmp ** 2, axis=(1, 2)) / np.sum(g ** 2, axis=(1, 2)))
+    error = np.sqrt(np.sum(tmp**2, axis=(1, 2)) / np.sum(g**2, axis=(1, 2)))
 
     return G, error
 
 
 def euclidean_dist(X, G):
     """
-    Compute the Euclidean distances between X and G points.
+    Computes the Euclidean distances between points in X and G.
+
     Parameters:
     X : ndarray
-        An array of positions (n, D, 1).
+        Coordinates of the data points, shape (n, D, 1).
     G : ndarray
-        An array of the other positions (m, D, 1).
-    h : float
-        Scalar value representing the covariance (assumes isotropic covariance).
+        Coordinates of the walkers, shape (m, D, 1).
 
     Returns:
+    distances : ndarray
+        Euclidean distances between each pair of points in X and G, shape (m, n).
+    diff : ndarray
+        Pairwise differences between each point in G and each point in X, shape (m, n, D).
     """
     X_squeezed = np.squeeze(X, axis=-1)
     G_squeezed = np.squeeze(G, axis=-1)
 
     # Compute differences for all combinations of G and X
-    diff = G_squeezed[:, np.newaxis, :] - X_squeezed[np.newaxis, :, :]  # Shape: (m, n, D)
-    distances = np.linalg.norm(diff, axis=-1)  # Shape: (m, n)
+    diff = G_squeezed[:, np.newaxis, :] - X_squeezed[np.newaxis, :, :]
+    distances = np.linalg.norm(diff, axis=-1)
 
     return distances, diff
 
 
-
 def vectorized_gaussian(X, G, h):
     """
-    Compute the Gaussian exponential efficiently for each point in X for each mean position in G
+    Computes the Gaussian exponential for each point in X for each mean position in G.
+
     Parameters:
     X : ndarray
-        An array of positions to evaluate with shape (n, D, 1).
+        Coordinates of the data points, shape (n, D, 1).
     G : ndarray
-        An array of mean positions with shape (m, D, 1).
+        Mean positions for the Gaussian, shape (m, D, 1).
     h : float
-        Scalar value representing the covariance (assumes isotropic covariance).
+        Smoothing bandwidth of the Gaussian kernel.
 
     Returns:
     c : ndarray
-        Array of computed Gaussian exponentials with shape (m, n).
+        Gaussian exponentials computed for each pair of points in X and G, shape (m, n).
     distances : ndarray
-        Array of Euclidean distances between each walker in G and each point in X, with shape (m, n).
+        Euclidean distances between each walker in G and each point in X, shape (m, n).
     """
-    # Calculate the Euclidean distances between each walker in G and each point in X
+    # Calculate Euclidean distances between each walker in G and each point in X
     X_squeezed = np.squeeze(X, axis=-1)
     G_squeezed = np.squeeze(G, axis=-1)
 
     # Compute differences for all combinations of G and X
-    diff = G_squeezed[:, np.newaxis, :] - X_squeezed[np.newaxis, :, :]  # Shape: (m, n, D)
+    diff = G_squeezed[:, np.newaxis, :] - X_squeezed[np.newaxis, :, :]
 
     # Compute the inverse covariance (assumes h is scalar)
     inv_cov = 1 / (h**2)
 
     # Calculate the exponent for the Gaussian function
-    exponent = -0.5 * np.sum(diff**2 * inv_cov, axis=-1)  # Shape: (m, n)
+    exponent = -0.5 * np.sum(diff**2 * inv_cov, axis=-1)
 
     # Compute the Gaussian exponential
-    c = np.exp(exponent)  # Shape: (m, n)
+    c = np.exp(exponent)
 
     return c

@@ -148,6 +148,7 @@ def wgauss_n_filtered_points(X, G, h, weights, f_h=8):
 
     return X, c * weights, weights, dist
 
+
 def shift_particles_masked(G, X, D, h, d, c, n, H, Hinv, mask):
     """
     Shifts the walkers in G towards the density ridges using SCMS,
@@ -181,51 +182,54 @@ def shift_particles_masked(G, X, D, h, d, c, n, H, Hinv, mask):
     """
 
     # Compute mean probability
-    pj = np.mean(c, axis=1)
+    pj = np.mean(c, axis=1)  # (m,)
 
-    # Expand dimensions for broadcasting
+    # Compute u for selected elements only
+    mask_indices = np.argwhere(mask)  # (k, 2) where k is the number of True values in mask
+    diff_selected = G[mask_indices[:, 0]] - X[mask_indices[:, 1]]  # (k, D, 1)
 
-    # compute u
-    mask_indices = np.argwhere(mask)
-    diff_selected = G[mask_indices[:, 0]] - X[mask_indices[:, 1]]
-    # calculate and broadcast u in the propershape
-    u = np.zeros((G.shape[0], X.shape[0], D, 1))
-    u[mask_indices[:, 0], mask_indices[:, 1]] =\
-        np.einsum('ij,njk->nik', Hinv, diff_selected) #/ h**2 #h can be removed to improve efficiency?
+    # Calculate u using the selected elements
+    u = np.zeros((G.shape[0], X.shape[0], G.shape[1], 1))  # (m, n, D, 1)
+    u[mask_indices[:, 0], mask_indices[:, 1]] = np.einsum('ij,njk->nik', Hinv, diff_selected)  # /h**2
 
-    # Compute g for all walker points
-    c_expanded = c[:, :, None, None]
-    g = -1 * np.sum(c_expanded * u, axis=1) / n
+    # Compute g for selected walker points using the mask
+    c_selected = c[mask_indices[:, 0], mask_indices[:, 1]]  # (k,)
+    g = np.zeros((G.shape[0], G.shape[1], 1))  # (m, D, 1)
+    np.add.at(g, mask_indices[:, 0],
+              -1 * c_selected[:, None, None] * u[mask_indices[:, 0], mask_indices[:, 1]] / X.shape[0])
 
-    # Compute the Hessian matrix for all walker points
-    u_T = np.transpose(u, axes=(0, 1, 3, 2))
-    Hess = np.sum(c_expanded * (np.matmul(u, u_T) - Hinv), axis=1) / n
+    # note, the above h can be removed to improve efficiency?
+    u_T = np.transpose(u, axes=(0, 1, 3, 2))  # (m, n, 1, D)
+    product = np.matmul(u, u_T) - Hinv  # (m, n, D, D) where required by mask
+
+    Hess = np.zeros((G.shape[0], G.shape[1], G.shape[1]))  # (m, D, D)
+    np.add.at(Hess, mask_indices[:, 0],
+              c_selected[:, None, None] * product[mask_indices[:, 0], mask_indices[:, 1]] / X.shape[0])
 
     # Expand dimensions for pj
-    pj = pj[:, None, None]
+    pj = pj[:, None, None]  # (m, 1, 1)
 
-    Sigmainv = -1 * Hess / pj + np.matmul(g, np.transpose(g, axes=(0, 2, 1))) / pj**2
+    # Compute Sigmainv
+    Sigmainv = -1 * Hess/pj + np.einsum('mik,mil->mkl', g, g)/pj** 2  # (m, D, D)
 
     # Compute the shift for each walker
-    shift0 = G + np.matmul(H, g) / pj
+    shift0 = G + np.matmul(H, g)/pj  # (m, D, 1)
 
     # Eigen decomposition for Sigmainv
-    EigVal, EigVec = np.linalg.eigh(Sigmainv)
+    EigVal, EigVec = np.linalg.eigh(Sigmainv) # (m, D), (m, D, D)
 
     # Get the eigenvectors with the largest eigenvalues
-    V = EigVec[:, :, d:D]
-
-    # Compute VVT
-    VVT = np.matmul(V, np.transpose(V, axes=(0, 2, 1)))
+    V = EigVec[:, :, d:D]  # (m, D, D-d)
 
     # Update G for each walker
-    G = np.matmul(VVT, (shift0 - G)) + G
+    G = np.einsum('mij,mjk->mik', np.einsum('mik,mjk->mij', V, V), (shift0 - G)) + G  # (m, D, 1)
 
     # Compute the error term
-    tmp = np.matmul(np.transpose(V, axes=(0, 2, 1)), g)
-    error = np.sqrt(np.sum(tmp**2, axis=(1, 2)) / np.sum(g**2, axis=(1, 2)))
+    tmp = np.einsum('mji,mjk->mik', V, g)  # (m, D, 1)
+    error = np.sqrt(np.einsum('mik,mik->m', tmp, tmp) / np.einsum('mik,mik->m', g, g))  # (m,)
 
     return G, error
+
 
 def shift_particles(G, X, D, h, d, c, n, H, Hinv):
     """

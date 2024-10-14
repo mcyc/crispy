@@ -204,7 +204,7 @@ def shift_walkers(G, X, h, d, c, mask):
     pj = pj[:, None, None]  # (m, 1, 1)
 
     # Compute Sigmainv
-    Sigmainv = -1 * Hess/pj + np.einsum('mik,mil->mkl', g, g)/pj** 2  # (m, D, D)
+    Sigmainv = (-1 * Hess + np.einsum('mik,mil->mkl', g, g)/pj)/pj  # (m, D, D)
 
     # Compute the shift for each walker
     shift0 = G + np.einsum('ij,mjk->mik', H, g) / pj # (m, D, 1)
@@ -220,7 +220,7 @@ def shift_walkers(G, X, h, d, c, mask):
 
     # Compute the error term
     tmp = np.einsum('mji,mjk->mik', V, g)  # (m, D, 1)
-    error = np.sqrt(np.sum(tmp ** 2, axis=(1, 2)) / np.sum(g ** 2, axis=(1, 2)))  # (m,)
+    error = np.sqrt(np.einsum('mik,mik->m', tmp, tmp) / np.einsum('mik,mik->m', g, g))  # (m,)
 
     return G, error
 

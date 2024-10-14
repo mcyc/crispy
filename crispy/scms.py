@@ -1,4 +1,5 @@
 import numpy as np
+from joblib import Parallel, delayed, cpu_count
 import time
 import sys
 
@@ -29,7 +30,7 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
     converge_frac : float, optional
         Fraction of walkers that need to converge for the algorithm to stop, in percent (default is 99).
     ncpu : int, optional
-        Number of CPUs to use (default is None).
+        Number of CPUs to use (default of None means use all the cpus).
     return_unconverged : bool, optional
         If True, returns both converged and unconverged walkers (default is True).
     f_h : float, optional
@@ -70,6 +71,16 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
 
     pct_error = np.percentile(error, converge_frac)
 
+    # Use available_cpus as the default if ncpu is -1
+    def chunk_data(ncpu, data_list):
+        ncpu = cpu_count() if ncpu is None else ncpu
+        m = len(G)
+        chunk_size = max(1, m // ncpu) if ncpu > 0 else m
+        chunks = ()
+        for data in data_list:
+            chunks += ([data[i:i + chunk_size] for i in range(0, m, chunk_size)],)
+        return chunks
+
     while ((pct_error > eps) & (t < maxT)):
         # Loop through iterations
         t += 1
@@ -79,7 +90,7 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
 
         # Filter out data points too far away to save computation time
         X, c, weights, dist = wgauss_n_filtered_points(X, GjList, h, weights, f_h=f_h)
-        mask = dist < f_h*h
+        mask = dist < f_h * h
 
         ni, mi = len(X), len(GjList)
 
@@ -87,16 +98,25 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
         if current_time - last_print_time >= 1:
             elapsed_time = current_time - start_time
             formatted_time = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
-            sys.stdout.write(f"\rIteration {t} | Data points: {ni} | Walkers remaining: {mi}/{m} ({100 - mi/m*100:0.1f}% complete) | {converge_frac}-percentile error: {pct_error:0.3f} | Total run time: {formatted_time}")
+            sys.stdout.write(
+                f"\rIteration {t} | Data points: {ni} | Walkers remaining: {mi}/{m} ({100 - mi / m * 100:0.1f}% complete) | {converge_frac}-percentile error: {pct_error:0.3f} | Total run time: {formatted_time}")
             sys.stdout.flush()
 
-        GRes, errorRes = shift_walkers(GjList, X, h, d, c, mask)
+        # Split GjList into chunks for parallel processing
+        chunks = chunk_data(ncpu, [GjList, mask])
 
-        G[itermask], error[itermask] = GRes, errorRes
+        results = Parallel(n_jobs=ncpu)(delayed(shift_walkers)(G_chunk, X, h, d, c, mask_chunk)
+                                        for G_chunk, mask_chunk in zip(*chunks))
+        GRes, errorRes = zip(*results)
+        GRes, errorRes = np.concatenate(GRes, axis=0), np.concatenate(errorRes, axis=0)
+        G[itermask], error[itermask]  = GRes, errorRes
+
         pct_error = np.percentile(error, converge_frac)
 
     sys.stdout.write("\n")
     mask = error < eps
+
+    print("the number of cpu used: ", ncpu)
 
     if return_unconverged:
         return G[mask], G[~mask]
@@ -171,7 +191,7 @@ def shift_walkers(G, X, h, d, c, mask):
         Error term for each walker.
     """
 
-    m, D, _ = G.shape
+    m, D = G.shape[0], G.shape[1]
     n = X.shape[0]
 
     # Compute internally to make parallel processing easier. They take incredibly little space
@@ -207,7 +227,8 @@ def shift_walkers(G, X, h, d, c, mask):
     Sigmainv = -1 * Hess/pj + np.einsum('mik,mil->mkl', g, g)/pj** 2  # (m, D, D)
 
     # Compute the shift for each walker
-    shift0 = G + np.matmul(H, g)/pj  # (m, D, 1)
+    #shift0 = G + np.matmul(H, g)/pj  # (m, D, 1)
+    shift0 = G + np.einsum('ij,jk->ik', H, g) / pj
 
     # Eigen decomposition for Sigmainv
     EigVal, EigVec = np.linalg.eigh(Sigmainv) # (m, D), (m, D, D)

@@ -70,6 +70,7 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
     last_print_time = start_time
 
     pct_error = np.percentile(error, converge_frac)
+    ncpu = cpu_count() if ncpu is None else ncpu
 
     while ((pct_error > eps) & (t < maxT)):
         # Loop through iterations
@@ -79,7 +80,6 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
         GjList = G[itermask]
 
         # Filter out data points too far away to save computation time
-        #X, c, weights, dist = wgauss_n_filtered_points(X, GjList, h, weights, f_h=f_h)
         X, c, weights, dist = wgauss_n_filtered_points_multiproc(X, GjList, h, weights, f_h=f_h, ncpu=ncpu)
 
         mask = dist < f_h * h
@@ -157,7 +157,6 @@ def wgauss_n_filtered_points(X, G, h, weights, f_h=5):
     # Use available_cpus as the default if ncpu is -1
 def chunk_data(ncpu, data_list, data_size):
     # break data up into chunks for multiprocessing
-    ncpu = cpu_count() if ncpu is None else ncpu
     chunk_size = max(1, data_size // ncpu) if ncpu > 0 else data_size
     chunks = ()
     for data in data_list:
@@ -167,6 +166,7 @@ def chunk_data(ncpu, data_list, data_size):
 
 def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu):
     # multiprocessing wrapper for shift_walkers
+    ncpu = cpu_count() if ncpu is None else ncpu
 
     # Split GjList into chunks for parallel processing
     chunks = chunk_data(ncpu, [X, weights], len(X))
@@ -184,6 +184,7 @@ def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu):
 
 def shift_wakers_multiproc(G, X, h, d, c, mask, ncpu):
     # multiprocessing wrapper for shift_walkers
+    ncpu = cpu_count() if ncpu is None else ncpu
 
     # Split GjList into chunks for parallel processing
     chunks = chunk_data(ncpu, [G, c, mask], len(G))

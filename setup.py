@@ -17,8 +17,7 @@ setup(
         'numpy',
         'scipy',
         'astropy',
-        'matplotlib',
-        'scikit-learn',
+        'joblib',
         'scikit-image',
     ],
     classifiers=[

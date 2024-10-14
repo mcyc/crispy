@@ -103,10 +103,10 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
             sys.stdout.flush()
 
         # Split GjList into chunks for parallel processing
-        chunks = chunk_data(ncpu, [GjList, mask])
+        chunks = chunk_data(ncpu, [GjList, c, mask])
 
-        results = Parallel(n_jobs=ncpu)(delayed(shift_walkers)(G_chunk, X, h, d, c, mask_chunk)
-                                        for G_chunk, mask_chunk in zip(*chunks))
+        results = Parallel(n_jobs=ncpu)(delayed(shift_walkers)(G_chunk, X, h, d, c_chunk, mask_chunk)
+                                        for G_chunk, c_chunk, mask_chunk in zip(*chunks))
         GRes, errorRes = zip(*results)
         GRes, errorRes = np.concatenate(GRes, axis=0), np.concatenate(errorRes, axis=0)
         G[itermask], error[itermask]  = GRes, errorRes
@@ -116,6 +116,7 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
     sys.stdout.write("\n")
     mask = error < eps
 
+    ncpu = cpu_count() if ncpu is None else ncpu
     print("the number of cpu used: ", ncpu)
 
     if return_unconverged:
@@ -227,8 +228,8 @@ def shift_walkers(G, X, h, d, c, mask):
     Sigmainv = -1 * Hess/pj + np.einsum('mik,mil->mkl', g, g)/pj** 2  # (m, D, D)
 
     # Compute the shift for each walker
-    #shift0 = G + np.matmul(H, g)/pj  # (m, D, 1)
-    shift0 = G + np.einsum('ij,jk->ik', H, g) / pj
+    shift0 = G + np.matmul(H, g)/pj  # (m, D, 1)
+    #shift0 = G + np.einsum('ij,jk->ik', H, g) / pj
 
     # Eigen decomposition for Sigmainv
     EigVal, EigVec = np.linalg.eigh(Sigmainv) # (m, D), (m, D, D)

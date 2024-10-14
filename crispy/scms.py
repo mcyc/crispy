@@ -47,6 +47,7 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
     X = X.astype(np.float32)
     h = np.float32(h)
     eps = np.float32(eps)
+
     if weights is None:
         weights = np.float32(1)
     else:
@@ -57,8 +58,6 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
     m = len(G)
     t = 0
 
-    H = np.eye(D) * h**2
-    Hinv = np.eye(D) / h**2
     error = np.full(m, 1e+08, dtype=np.float32)
 
     print("==========================================================================")
@@ -91,8 +90,7 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
             sys.stdout.write(f"\rIteration {t} | Data points: {ni} | Walkers remaining: {mi}/{m} ({100 - mi/m*100:0.1f}% complete) | {converge_frac}-percentile error: {pct_error:0.3f} | Total run time: {formatted_time}")
             sys.stdout.flush()
 
-        #GRes, errorRes = shift_particles(GjList, X, D, h, d, c, ni, H, Hinv, mask)
-        GRes, errorRes = shift_particles_masked(GjList, X, D, h, d, c, ni, H, Hinv, mask)
+        GRes, errorRes = shift_walkers(G, X, h, d, c, mask)
 
         G[itermask], error[itermask] = GRes, errorRes
         pct_error = np.percentile(error, converge_frac)
@@ -149,7 +147,7 @@ def wgauss_n_filtered_points(X, G, h, weights, f_h=8):
     return X, c * weights, weights, dist
 
 
-def shift_particles_masked(G, X, D, h, d, c, n, H, Hinv, mask):
+def shift_walkers(G, X, h, d, c, mask):
     """
     Shifts the walkers in G towards the density ridges using SCMS,
     excluding elements outside the mask
@@ -159,20 +157,12 @@ def shift_particles_masked(G, X, D, h, d, c, n, H, Hinv, mask):
         Coordinates of the walkers, shape (m, D, 1).
     X : ndarray
         Coordinates of the data points, shape (n, D, 1).
-    D : int
-        Dimension of the data points.
     h : float
         Smoothing bandwidth of the Gaussian kernel.
     d : int
         Target number of dimensions for projection.
     c : ndarray
         Weighted Gaussian values computed from G and X.
-    n : int
-        Number of data points.
-    H : ndarray
-        Covariance matrix for the Gaussian kernel.
-    Hinv : ndarray
-        Inverse of the covariance matrix.
 
     Returns:
     G_updated : ndarray
@@ -180,6 +170,13 @@ def shift_particles_masked(G, X, D, h, d, c, n, H, Hinv, mask):
     error : ndarray
         Error term for each walker.
     """
+
+    m, D, _ = G.shape
+    n = X.shape[0]
+
+    # Compute internally to make parallel processing easier. They take incredibly little space
+    H = np.eye(D) * h**2
+    Hinv = np.eye(D) / h**2
 
     # Compute mean probability
     pj = np.mean(c, axis=1)  # (m,)
@@ -193,15 +190,15 @@ def shift_particles_masked(G, X, D, h, d, c, n, H, Hinv, mask):
 
     # Compute g for selected walker points using the mask
     c_selected = c[mask_indices[:, 0], mask_indices[:, 1]]  # (k,)
-    g = np.zeros((G.shape[0], G.shape[1], 1))  # (m, D, 1)
-    np.add.at(g, mask_indices[:, 0], -1 * c_selected[:, None, None] * u_diff / X.shape[0])
+    g = np.zeros(G.shape)  # (m, D, 1)
+    np.add.at(g, mask_indices[:, 0], -1 * c_selected[:, None, None] * u_diff / n)
 
     # Compute u_diff.T @ u_diff using einsum to avoid explicit transpose and matmul
     product = np.einsum('nik,njk->nij', u_diff, u_diff) - Hinv  # (k, D, D)
 
     # Update Hessian matrix
-    Hess = np.zeros((G.shape[0], G.shape[1], G.shape[1]))  # (m, D, D)
-    np.add.at(Hess, mask_indices[:, 0], c_selected[:, None, None] * product / X.shape[0])
+    Hess = np.zeros((m, D, D))  # (m, D, D)
+    np.add.at(Hess, mask_indices[:, 0], c_selected[:, None, None] * product / n)
 
     # Expand dimensions for pj
     pj = pj[:, None, None]  # (m, 1, 1)
@@ -263,11 +260,11 @@ def shift_particles(G, X, D, h, d, c, n, H, Hinv):
     pj = np.mean(c, axis=1)
 
     # Expand dimensions for broadcasting
-    X_expanded = X[None, :, :, :]
-    G_expanded = G[:, None, :, :]
+    X_expanded = X[None, :, :, :] # (n, 1, D, 1)
+    G_expanded = G[:, None, :, :] # (1, m, D, 1)
 
     # Compute u for all walker points
-    u = np.matmul(Hinv, (G_expanded - X_expanded)) / h**2
+    u = np.matmul(Hinv, (G_expanded - X_expanded)) #/ h**2
 
     # Compute g for all walker points
     c_expanded = c[:, :, None, None]

@@ -1,4 +1,5 @@
 import numpy as np
+from joblib import Parallel, delayed, cpu_count
 import time
 import sys
 
@@ -29,7 +30,7 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
     converge_frac : float, optional
         Fraction of walkers that need to converge for the algorithm to stop, in percent (default is 99).
     ncpu : int, optional
-        Number of CPUs to use (default is None).
+        Number of CPUs to use (default of None means use all the cpus).
     return_unconverged : bool, optional
         If True, returns both converged and unconverged walkers (default is True).
     f_h : float, optional
@@ -78,8 +79,10 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
         GjList = G[itermask]
 
         # Filter out data points too far away to save computation time
-        X, c, weights, dist = wgauss_n_filtered_points(X, GjList, h, weights, f_h=f_h)
-        mask = dist < f_h*h
+        #X, c, weights, dist = wgauss_n_filtered_points(X, GjList, h, weights, f_h=f_h)
+        X, c, weights, dist = wgauss_n_filtered_points_multiproc(X, GjList, h, weights, f_h=f_h, ncpu=ncpu)
+
+        mask = dist < f_h * h
 
         ni, mi = len(X), len(GjList)
 
@@ -87,16 +90,20 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
         if current_time - last_print_time >= 1:
             elapsed_time = current_time - start_time
             formatted_time = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
-            sys.stdout.write(f"\rIteration {t} | Data points: {ni} | Walkers remaining: {mi}/{m} ({100 - mi/m*100:0.1f}% complete) | {converge_frac}-percentile error: {pct_error:0.3f} | Total run time: {formatted_time}")
+            sys.stdout.write(
+                f"\rIteration {t} | Data points: {ni} | Walkers remaining: {mi}/{m} ({100 - mi / m * 100:0.1f}% complete) | {converge_frac}-percentile error: {pct_error:0.3f} | Total run time: {formatted_time}")
             sys.stdout.flush()
 
-        GRes, errorRes = shift_walkers(GjList, X, h, d, c, mask)
+        GRes, errorRes = shift_wakers_multiproc(GjList, X, h, d, c, mask, ncpu)
+        G[itermask], error[itermask]  = GRes, errorRes
 
-        G[itermask], error[itermask] = GRes, errorRes
         pct_error = np.percentile(error, converge_frac)
 
     sys.stdout.write("\n")
     mask = error < eps
+
+    ncpu = cpu_count() if ncpu is None else ncpu
+    print("the number of cpu used: ", ncpu)
 
     if return_unconverged:
         return G[mask], G[~mask]
@@ -147,6 +154,47 @@ def wgauss_n_filtered_points(X, G, h, weights, f_h=5):
     return X, c * weights, weights, dist
 
 
+    # Use available_cpus as the default if ncpu is -1
+def chunk_data(ncpu, data_list, data_size):
+    # break data up into chunks for multiprocessing
+    ncpu = cpu_count() if ncpu is None else ncpu
+    chunk_size = max(1, data_size // ncpu) if ncpu > 0 else data_size
+    chunks = ()
+    for data in data_list:
+        chunks += ([data[i:i + chunk_size] for i in range(0, data_size, chunk_size)],)
+    return chunks
+
+
+def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu):
+    # multiprocessing wrapper for shift_walkers
+
+    # Split GjList into chunks for parallel processing
+    chunks = chunk_data(ncpu, [X, weights], len(X))
+
+    results = Parallel(n_jobs=ncpu)(delayed(wgauss_n_filtered_points)(X_chunk, G, h, weights_chunk, f_h)
+                                    for X_chunk, weights_chunk in zip(*chunks))
+    X, c, weights, dist = zip(*results)
+    X = np.concatenate(X, axis=0)
+    c = np.concatenate(c, axis=1)
+    weights = np.concatenate(weights, axis=0)
+    dist = np.concatenate(dist, axis=1)
+
+    return X, c, weights, dist
+
+
+def shift_wakers_multiproc(G, X, h, d, c, mask, ncpu):
+    # multiprocessing wrapper for shift_walkers
+
+    # Split GjList into chunks for parallel processing
+    chunks = chunk_data(ncpu, [G, c, mask], len(G))
+
+    results = Parallel(n_jobs=ncpu)(delayed(shift_walkers)(G_chunk, X, h, d, c_chunk, mask_chunk)
+                                    for G_chunk, c_chunk, mask_chunk in zip(*chunks))
+    GRes, errorRes = zip(*results)
+    GRes, errorRes = np.concatenate(GRes, axis=0), np.concatenate(errorRes, axis=0)
+    return GRes, errorRes
+
+
 def shift_walkers(G, X, h, d, c, mask):
     """
     Shifts the walkers in G towards the density ridges using SCMS,
@@ -171,7 +219,7 @@ def shift_walkers(G, X, h, d, c, mask):
         Error term for each walker.
     """
 
-    m, D, _ = G.shape
+    m, D = G.shape[0], G.shape[1]
     n = X.shape[0]
 
     # Compute internally to make parallel processing easier. They take incredibly little space

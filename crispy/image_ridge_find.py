@@ -11,7 +11,7 @@ reload(scms_mul)
 ########################################################################################################################
 
 def run(image, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=None, converge_frac=99, ncpu=None,
-        walkerThres=None, overmask=None, walkers=None, min_size=9, return_unconverged=True):
+        walkerThres=None, overmask=None, walkers=None, min_size=9, return_unconverged=True, f_h=5):
     '''
     The wrapper for scmspy_multiproc to identify density ridges in fits images
 
@@ -56,6 +56,9 @@ def run(image, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
     :param return_unconverged:
         <boolean> Returns both the converged and unconvered walker if True. Else, returns only the converged walkers
 
+    :param: f_h : float, optional
+        <float> Factor used to filter out data points based on distance to all other data points (default is 5).
+
     :return:
         Coordinates of the ridge as defined by the walkers.
     '''
@@ -75,9 +78,9 @@ def run(image, h=1, eps=1e-02, maxT=1000, thres=0.135, ordXYZ=True, crdScaling=N
         X = X[:]/crdScaling[:, None]
         G = G[:]/crdScaling[:, None]
 
-    #kwargs = {'eps':eps, 'maxT':maxT, 'wweights':weights, 'converge_frac':converge_frac, 'ncpu':ncpu}
-    kwargs = dict(eps=eps, maxT=maxT, wweights=weights, converge_frac=converge_frac, ncpu=ncpu,
-                  return_unconverged=return_unconverged)
+    #kwargs = {'eps':eps, 'maxT':maxT, 'weights':weights, 'converge_frac':converge_frac, 'ncpu':ncpu}
+    kwargs = dict(eps=eps, maxT=maxT, weights=weights, converge_frac=converge_frac, ncpu=ncpu,
+                  return_unconverged=return_unconverged, f_h=f_h)
     G = scms_mul.find_ridge(X, G, D, h, 1, **kwargs)
 
     def scale_back(G):

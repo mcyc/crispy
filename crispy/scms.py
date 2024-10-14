@@ -90,7 +90,7 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
             sys.stdout.write(f"\rIteration {t} | Data points: {ni} | Walkers remaining: {mi}/{m} ({100 - mi/m*100:0.1f}% complete) | {converge_frac}-percentile error: {pct_error:0.3f} | Total run time: {formatted_time}")
             sys.stdout.flush()
 
-        GRes, errorRes = shift_walkers(G, X, h, d, c, mask)
+        GRes, errorRes = shift_walkers(GjList, X, h, d, c, mask)
 
         G[itermask], error[itermask] = GRes, errorRes
         pct_error = np.percentile(error, converge_frac)
@@ -104,7 +104,7 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
         return G[mask]
 
 
-def wgauss_n_filtered_points(X, G, h, weights, f_h=8):
+def wgauss_n_filtered_points(X, G, h, weights, f_h=5):
     """
     Computes the weighted Gaussian at positions X, with means in G, filtering out points based on distance.
 

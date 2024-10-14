@@ -79,7 +79,9 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-06, maxT=1000, weights=None, converge
         GjList = G[itermask]
 
         # Filter out data points too far away to save computation time
-        X, c, weights, dist = wgauss_n_filtered_points(X, GjList, h, weights, f_h=f_h)
+        #X, c, weights, dist = wgauss_n_filtered_points(X, GjList, h, weights, f_h=f_h)
+        X, c, weights, dist = wgauss_n_filtered_points_multiproc(X, GjList, h, weights, f_h=f_h, ncpu=ncpu)
+
         mask = dist < f_h * h
 
         ni, mi = len(X), len(GjList)
@@ -161,6 +163,24 @@ def chunk_data(ncpu, data_list, data_size):
     for data in data_list:
         chunks += ([data[i:i + chunk_size] for i in range(0, data_size, chunk_size)],)
     return chunks
+
+
+def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu):
+    # multiprocessing wrapper for shift_walkers
+
+    # Split GjList into chunks for parallel processing
+    chunks = chunk_data(ncpu, [X, weights], len(X))
+
+    results = Parallel(n_jobs=ncpu)(delayed(wgauss_n_filtered_points)(X_chunk, G, h, weights_chunk, f_h)
+                                    for X_chunk, weights_chunk in zip(*chunks))
+    X, c, weights, dist = zip(*results)
+    X = np.concatenate(X, axis=0)
+    c = np.concatenate(c, axis=1)
+    weights = np.concatenate(weights, axis=0)
+    dist = np.concatenate(dist, axis=1)
+
+    return X, c, weights, dist
+
 
 def shift_wakers_multiproc(G, X, h, d, c, mask, ncpu):
     # multiprocessing wrapper for shift_walkers

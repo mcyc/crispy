@@ -252,11 +252,10 @@ def shift_walkers(G, X, h, d, c, mask):
     pj = pj[:, None, None]  # (m, 1, 1)
 
     # Compute Sigmainv
-    Sigmainv = -1 * Hess/pj + np.einsum('mik,mil->mkl', g, g)/pj** 2  # (m, D, D)
+    Sigmainv = (-1 * Hess + np.einsum('mik,mil->mkl', g, g)/pj)/pj  # (m, D, D)
 
     # Compute the shift for each walker
-    shift0 = G + np.matmul(H, g)/pj  # (m, D, 1)
-    #shift0 = G + np.einsum('ij,jk->ik', H, g) / pj
+    shift0 = G + np.einsum('ij,mjk->mik', H, g) / pj # (m, D, 1)
 
     # Eigen decomposition for Sigmainv
     EigVal, EigVec = np.linalg.eigh(Sigmainv) # (m, D), (m, D, D)

@@ -4,7 +4,7 @@ import numpy as np
 from astropy.io import fits
 import time
 from datetime import timedelta
-from skimage.morphology import skeletonize, skeletonize_3d, label, remove_small_objects
+from skimage.morphology import skeletonize, label, remove_small_objects
 from importlib import reload
 
 from . import pruning
@@ -29,7 +29,7 @@ class Skeleton(object):
             [int] the minize size of skeleton allowed in the final output
         :return:
         '''
-        # skeletonize_3d is used to ensure the input skeleton is indeed one pixel wide
+        # skeletonize is used to ensure the input skeleton is indeed one pixel wide
 
         if isinstance(skeleton_raw, str):
             skeleton_raw, hdr = fits.getdata(skeleton_raw, header=True)
@@ -43,7 +43,7 @@ class Skeleton(object):
         if self.ndim ==2:
             self.skeleton_raw = skeletonize(skeleton_raw).astype(bool)
         else:
-            self.skeleton_raw = skeletonize_3d(skeleton_raw).astype(bool)
+            self.skeleton_raw = skeletonize(skeleton_raw).astype(bool)
 
         self.skeleton_raw = remove_small_objects(self.skeleton_raw, min_size=min_size, connectivity=self.ndim)
         self.skeleton_full = self.skeleton_raw.copy()
@@ -87,7 +87,7 @@ class Skeleton(object):
 
         self.skeleton_full = pruning.remove_bad_ppv_branches(labBodyPtAry, num_lab, refStructure=self.skeleton_full,
                                                              max_pp_length=30.0, v2pp_ratio=v2pp_ratio, method="full")
-        self.skeleton_full = skeletonize_3d(self.skeleton_full).astype(bool)
+        self.skeleton_full = skeletonize(self.skeleton_full).astype(bool)
         end = time.time()
         delta_time = int(end - start)
         delta_time = timedelta(seconds=delta_time)

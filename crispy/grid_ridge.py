@@ -271,7 +271,7 @@ def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length=
         # create a full skeleton
         # loop through all the lables (except for -1, which is label for noise)
         skl = grid_skeleton(coord[labels == lb].T, refdata, coord_in_xfirst=coord_in_xfirst, start_index=start_index)
-        skl = morphology.skeletonize_3d(skl)
+        skl = morphology.skeletonize(skl)
         skl = skl.astype(bool)
 
         if skl.sum() > min_length:
@@ -279,7 +279,7 @@ def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length=
 
             omask = np.logical_and(labels != lb, labels >= 0)
             others = grid_skeleton(coord[omask].T, refdata, coord_in_xfirst=coord_in_xfirst, start_index=start_index)
-            others = morphology.skeletonize_3d(others)
+            others = morphology.skeletonize(others)
 
             # remove the endpoint pixels that may connect one structure from another
             if method == "robust":
@@ -381,7 +381,7 @@ def clean_grid_ppv(coord, refdata, coord_in_xfirst=False, start_index=1, min_len
         # create a full skeleton
         # loop through all the lables (except for -1, which is label for noise)
         skl = grid_skeleton(coord[labels == lb].T, refdata, coord_in_xfirst=coord_in_xfirst, start_index=start_index)
-        skl = morphology.skeletonize_3d(skl)
+        skl = morphology.skeletonize(skl)
         skl = skl.astype(bool)
 
         len2d = get_2d_length(skl)
@@ -390,7 +390,7 @@ def clean_grid_ppv(coord, refdata, coord_in_xfirst=False, start_index=1, min_len
 
             omask = np.logical_and(labels != lb, labels >= 0)
             others = grid_skeleton(coord[omask].T, refdata, coord_in_xfirst=coord_in_xfirst, start_index=start_index)
-            others = morphology.skeletonize_3d(others)
+            others = morphology.skeletonize(others)
 
             # remove overlaping pixels
             if method == "robust":

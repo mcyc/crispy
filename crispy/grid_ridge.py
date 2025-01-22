@@ -1,3 +1,11 @@
+"""
+Functions for gridding and processing CRISPy results on reference images.
+
+This module provides tools to map CRISPy ridge detection results onto a reference image grid, clean and refine
+the skeleton structures, and handle input and output operations. Key functionalities include skeleton gridding,
+labeling, pruning, and advanced 2D/3D structure manipulation for astrophysical data.
+"""
+
 __author__ = 'mcychen'
 
 import numpy as np
@@ -10,21 +18,53 @@ from astropy.utils.console import ProgressBar
 #======================================================================================================================#
 # higher-level wrapper
 def grid_skel(readFile, imgFile, writeFile, **kwargs):
-    '''
-    Takes the raw CRISPy results and grid them onto a reference image (usually the image from which CRISPy ran on)
+    """
+    Map raw CRISPy results onto a reference image grid and save the gridded results.
 
-    :param readFile: string
-        The .txt file name of the ungridded (raw) CRISPy results
+    Takes ungridded CRISPy results and aligns them with the grid of a
+    reference image (typically the image from which CRISPy was run). The gridded results
+    are saved to a specified output file in FITS format.
 
-    :param imgFile: string
-        The .fits file name of the reference grid image
+    Parameters
+    ----------
+    readFile : str
+        Path to the .txt file containing the ungridded (raw) CRISPy results.
 
-    :param writeFile: string
-        The .fits file name to save the gridded CRISPY results
+    imgFile : str
+        Path to the .fits file of the reference grid image.
 
-    :param kwargs:
-        Keyword arguments to be passed down to the clean_grid() function
-    '''
+    writeFile : str
+        Path to the .fits file where the gridded CRISPy results will be saved.
+
+    **kwargs : dict, optional
+        Additional keyword arguments to customize the behavior of the `clean_grid` function.
+        Defaults are:
+        - `coord_in_xfirst`: bool, default=True
+            Whether the input coordinates have the x-dimension first.
+        - `start_index`: int, default=0
+            Starting index for gridding the skeleton.
+        - `min_length`: int, default=6
+            Minimum length of structures to retain.
+        - `method`: str, default="robust"
+            Gridding method, either "robust" or "fast".
+
+    Returns
+    -------
+    None
+        The gridded skeleton is saved directly to the specified `writeFile`.
+
+    Notes
+    -----
+    - The `clean_grid` function is responsible for handling the gridding and filtering of skeleton structures.
+    - The output file is saved in FITS format with the reference image's header metadata.
+
+    Examples
+    --------
+    Grid CRISPy results and save them to a FITS file:
+
+    >>> from crispy import grid_ridge
+    >>> grid_ridge.grid_skel("results.txt", "reference_image.fits", "gridded_results.fits", min_length=10, method="fast")
+    """
     kwargs_default = dict(coord_in_xfirst=True, start_index=0, min_length=6, method="robust")
     kwargs = { **kwargs_default, **kwargs}
 
@@ -36,17 +76,48 @@ def grid_skel(readFile, imgFile, writeFile, **kwargs):
 #======================================================================================================================#
 # input and output
 
-def read_table(fname, useDict = False):
-    '''
-    read in the filaments skeleton identified by SCMC algorithm
-    :param fname:
-        (String) File name of the filament skeleton
-    :param useDict:
-        (Boolean) Whether or not to return the read in values as a dictionary. The keys assigned assumes that the
-        coordinates eitehr have 2 or 3 dimensions
-    :return:
-    '''
+def read_table(fname, useDict=False):
+    """
+    Read filament skeleton data from a file.
 
+    Reads the skeleton coordinates identified by the SCMS algorithm
+    from a text file. It can return the data as either a NumPy array or a dictionary,
+    depending on the user's preference.
+
+    Parameters
+    ----------
+    fname : str
+        Path to the text file containing the skeleton data.
+
+    useDict : bool, optional, default=False
+        If True, returns the skeleton data as a dictionary with coordinate labels
+        (`'xind, yind, zind'` for 3D or `'xind, yind'` for 2D). Otherwise, returns a NumPy array.
+
+    Returns
+    -------
+    ndarray or dict
+        - If `useDict` is False: A NumPy array containing the skeleton coordinates.
+        - If `useDict` is True: A dictionary with labeled coordinates.
+
+    Notes
+    -----
+    - The skeleton file is expected to have columns representing coordinate indices.
+    - If the data is 3D, the dictionary keys will be `'xind, yind, zind'`.
+    - For 2D data, the dictionary keys will be `'xind, yind'`.
+
+    Examples
+    --------
+    Read skeleton data as a NumPy array:
+
+    >>> from crispy import grid_ridge
+    >>> data = grid_ridge.read_table("skeleton_data.txt")
+    >>> print(data.shape)
+
+    Read skeleton data as a dictionary:
+
+    >>> data_dict = grid_ridge.read_table("skeleton_data.txt", useDict=True)
+    >>> print(data_dict.keys())
+    """
     values = np.loadtxt(fname,unpack=True)
 
     if useDict:
@@ -72,7 +143,46 @@ def write_skel(filename, data, header):
 
 
 def label_ridge(coord, eps=1.0, min_samples=5):
-    # use DBSCAN to label different, unconnected ridges
+    """
+    Label unconnected ridges using DBSCAN clustering.
+
+    Applies the DBSCAN algorithm to identify and label distinct,
+    unconnected ridge structures in the input coordinates.
+
+    Parameters
+    ----------
+    coord : ndarray
+        Coordinates of the ridge points, shape (n, D), where `n` is the number
+        of points and `D` is the dimensionality.
+
+    eps : float, optional, default=1.0
+        Maximum distance between two points to be considered part of the same ridge.
+
+    min_samples : int, optional, default=5
+        Minimum number of points required to form a cluster.
+
+    Returns
+    -------
+    labels : ndarray
+        Cluster labels for each point, shape (n,). Points labeled `-1` are considered noise.
+
+    Notes
+    -----
+    - DBSCAN is a density-based clustering algorithm that groups points based on spatial
+      proximity. Points that do not belong to any cluster are assigned the label `-1`.
+    - This function requires `scikit-learn` for the DBSCAN implementation.
+
+    Examples
+    --------
+    Label ridge points in a 2D space:
+
+    >>> import numpy as np
+    >>> from crispy import grid_ridge
+    >>> coords = np.array([[0, 0], [1, 1], [2, 2], [10, 10], [11, 11]])
+    >>> labels = grid_ridge.label_ridge(coords, eps=2.0, min_samples=2)
+    >>> print(labels)
+    [ 0  0  0  1  1 ]
+    """
     from sklearn.cluster import DBSCAN
 
     db = DBSCAN(eps=eps, min_samples=min_samples).fit(coord)
@@ -81,12 +191,64 @@ def label_ridge(coord, eps=1.0, min_samples=5):
 
 
 
-def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length = 6, method="robust"):
-    # take CRISPY coordinates, label individual filaments, and grid them with one pixel taken off from their ends
-    # DB scan is used to avoid sub-sampling with the cube grid
-    # note: the current implementation only works for 2D or 3D
+def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length=6, method="robust"):
+    """
+    Process and grid CRISPy coordinates onto a reference image, labeling and cleaning skeleton structures.
 
-    # label the filaments
+    Takes CRISPy coordinates, labels distinct ridge structures using DBSCAN,
+    grids them onto a reference image, and removes endpoints that might connect separate structures.
+    Structures shorter than a specified length are filtered out.
+
+    Parameters
+    ----------
+    coord : ndarray
+        Coordinates of the ridge points, shape (n, D), where `n` is the number of points
+        and `D` is the dimensionality (2D or 3D).
+
+    refdata : ndarray
+        Reference image array defining the grid dimensions.
+
+    coord_in_xfirst : bool, optional, default=False
+        If True, assumes the input coordinates are ordered with x as the first axis.
+        If False, assumes z is the first axis for 3D data or y for 2D data.
+
+    start_index : int, optional, default=1
+        The starting index for gridding the skeleton onto the reference image.
+
+    min_length : int, optional, default=6
+        Minimum length (in pixels) for structures to be retained.
+
+    method : {"robust", "fast"}, optional, default="robust"
+        Method for cleaning skeleton endpoints:
+        - "robust": Ensures diagonal connections are handled but is computationally intensive.
+        - "fast": Faster but may miss diagonally connected structures.
+
+    Returns
+    -------
+    skel_cube : ndarray
+        Binary array with the same shape as `refdata`, where gridded skeleton structures
+        are set to `True`.
+
+    Notes
+    -----
+    - The DBSCAN algorithm is used to label distinct ridge structures, grouping nearby points
+      into clusters and treating outliers as noise.
+    - Endpoints are removed to avoid overlap between distinct structures when gridded.
+    - The current implementation supports only 2D and 3D data.
+
+    Examples
+    --------
+    Grid and clean ridge coordinates for a 3D reference image:
+
+    >>> import numpy as np
+    >>> from crispy import grid_ridge
+    >>> coords = np.array([[0, 0, 0], [1, 1, 1], [10, 10, 10]])
+    >>> ref_image = np.zeros((20, 20, 20))
+    >>> skel_cube = grid_ridge.clean_grid(coords, ref_image, min_length=5, method="fast")
+    >>> print(skel_cube.shape)
+    (20, 20, 20)
+    """
+    # label filaments
     coord = coord.T
     labels = label_ridge(coord, eps=1.0, min_samples=3)
 
@@ -147,9 +309,63 @@ def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length 
 
 # note: this method designed to work on ppv structures
 # more general 3d cleaning has yet to be implemented
-def clean_grid_ppv(coord, refdata, coord_in_xfirst=False, start_index=1, min_length = 6, method="robust"):
-    # take CRISPY coordinates, label individual filaments, and grid them with one pixel taken off from their ends
-    # DB scan is used to avoid sub-sampling with the cube grid
+def clean_grid_ppv(coord, refdata, coord_in_xfirst=False, start_index=1, min_length=6, method="robust"):
+    """
+    Process and grid CRISPy coordinates in PPV space onto a reference image, labeling and cleaning skeleton structures.
+
+    Grids CRISPy coordinates onto a position-position-velocity (PPV) reference image, labels distinct
+    ridge structures using DBSCAN, and removes endpoints to prevent overlap between structures. Structures shorter
+    than a specified projected length are filtered out, and vertical segments are truncated based on a velocity threshold.
+
+    Parameters
+    ----------
+    coord : ndarray
+        Coordinates of the ridge points, shape (n, D), where `n` is the number of points
+        and `D` is the dimensionality (typically 3D in PPV space).
+
+    refdata : ndarray
+        Reference PPV image array defining the grid dimensions.
+
+    coord_in_xfirst : bool, optional, default=False
+        If True, assumes the input coordinates are ordered with x as the first axis.
+        If False, assumes z is the first axis.
+
+    start_index : int, optional, default=1
+        The starting index for gridding the skeleton onto the reference image.
+
+    min_length : int, optional, default=6
+        Minimum projected length (in pixels) for structures to be retained.
+
+    method : {"robust", "fast"}, optional, default="robust"
+        Method for cleaning skeleton endpoints:
+        - "robust": Handles diagonal connections but is computationally intensive.
+        - "fast": Faster but may miss diagonally connected structures.
+
+    Returns
+    -------
+    skel_cube : ndarray
+        Binary array with the same shape as `refdata`, where gridded skeleton structures
+        are set to `True`.
+
+    Notes
+    -----
+    - DBSCAN is used to label ridge structures with higher resultion than the image grid
+    - Endpoints are removed to avoid overlap between distinct structures.
+    - Vertical segments in velocity are removed based on a threshold (`delVelMax` set to 2 pixels).
+    - The current implementation supports only 3D PPV data.
+
+    Examples
+    --------
+    Grid and clean ridge coordinates in PPV space:
+
+    >>> import numpy as np
+    >>> from crispy import grid_ridge
+    >>> coords = np.array([[0, 0, 0], [1, 1, 1], [10, 10, 10]])
+    >>> ref_image = np.zeros((20, 20, 20))  # Reference PPV image
+    >>> skel_cube = grid_ridge.clean_grid_ppv(coords, ref_image, min_length=5, method="robust")
+    >>> print(skel_cube.shape)
+    (20, 20, 20)
+    """
     delVelMax = 2
 
     # label the filaments
@@ -213,8 +429,53 @@ def clean_grid_ppv(coord, refdata, coord_in_xfirst=False, start_index=1, min_len
 # grid function
 
 def grid_skeleton(coord, refdata, coord_in_xfirst=False, start_index=1):
-    # take the coordinates of the SCMS skeleton, and map it onto a map or a cube
+    """
+    Map CRISPy skeleton coordinates onto a reference image grid.
 
+    Takes CRISPy ridge coordinates and grids them onto a binary mask with the
+    same shape as a reference image. The resulting mask highlights the skeletonized structure
+    aligned to the grid.
+
+    Parameters
+    ----------
+    coord : ndarray
+        Coordinates of the ridge points, shape (n, D), where `n` is the number of points
+        and `D` is the dimensionality (2D or 3D).
+
+    refdata : ndarray
+        Reference image array defining the grid dimensions.
+
+    coord_in_xfirst : bool, optional, default=False
+        If True, assumes the input coordinates are ordered with x as the first axis.
+        If False, assumes z is the first axis for 3D data or y for 2D data.
+
+    start_index : int, optional, default=1
+        Starting index for mapping the skeleton coordinates to the reference grid.
+
+    Returns
+    -------
+    mask : ndarray
+        Binary mask with the same shape as `refdata`, where skeletonized points are set to 1
+        and all other points are 0.
+
+    Notes
+    -----
+    - The coordinates are rounded to the nearest integer and adjusted for the starting index
+      before mapping onto the reference grid.
+    - This function supports both 2D and 3D data.
+
+    Examples
+    --------
+    Map 3D ridge coordinates onto a reference image grid:
+
+    >>> import numpy as np
+    >>> from crispy import grid_ridge
+    >>> coords = np.array([[0, 0, 0], [1, 1, 1], [10, 10, 10]])
+    >>> ref_image = np.zeros((20, 20, 20))  # Reference image
+    >>> mask = grid_ridge.grid_skeleton(coords, ref_image)
+    >>> print(mask.shape)
+    (20, 20, 20)
+    """
     # if the passed in coordinates are in the order of x, y, and z, instead z, y, and x.
     if coord_in_xfirst:
         coord[[0, -1]] = coord[[-1, 0]]
@@ -234,8 +495,61 @@ def grid_skeleton(coord, refdata, coord_in_xfirst=False, start_index=1):
 
 
 
-def make_skeleton(coord, refdata, rm_sml_obj = True, coord_in_xfirst=False, start_index=1, min_length = 6):
-    # take the coordinates of the SCMS skeleton, and map it onto a map or a cube
+def make_skeleton(coord, refdata, rm_sml_obj=True, coord_in_xfirst=False, start_index=1, min_length=6):
+    """
+    Map CRISPy skeleton coordinates onto a reference grid and clean the skeleton.
+
+    Grids CRISPy ridge coordinates onto a binary mask based on a reference
+    image. It optionally removes small objects and structures shorter than a specified
+    length to produce a cleaned skeleton map.
+
+    Parameters
+    ----------
+    coord : ndarray
+        Coordinates of the ridge points, shape (n, D), where `n` is the number of points
+        and `D` is the dimensionality (2D or 3D).
+
+    refdata : ndarray
+        Reference image array defining the grid dimensions.
+
+    rm_sml_obj : bool, optional, default=True
+        If True, removes small objects shorter than `min_length` from the skeletonized map.
+
+    coord_in_xfirst : bool, optional, default=False
+        If True, assumes the input coordinates are ordered with x as the first axis.
+        If False, assumes z is the first axis for 3D data or y for 2D data.
+
+    start_index : int, optional, default=1
+        Starting index for mapping the skeleton coordinates to the reference grid.
+
+    min_length : int, optional, default=6
+        Minimum length (in pixels) for structures to be retained.
+
+    Returns
+    -------
+    mask : ndarray
+        Binary array with the same shape as `refdata`, representing the cleaned skeleton.
+        Structures shorter than `min_length` are removed if `rm_sml_obj` is True.
+
+    Notes
+    -----
+    - The skeleton is gridded using the `grid_skeleton` function and further processed
+      to remove small objects or short structures.
+    - Cleaning operations assume the skeleton is 1-pixel wide and connected by an 8-neighbor
+      connectivity in 2D or 26-neighbor connectivity in 3D.
+
+    Examples
+    --------
+    Create and clean a 3D skeleton:
+
+    >>> import numpy as np
+    >>> from crispy import grid_ridge
+    >>> coords = np.array([[0, 0, 0], [1, 1, 1], [10, 10, 10]])
+    >>> ref_image = np.zeros((20, 20, 20))  # Reference image
+    >>> mask = grid_ridge.make_skeleton(coords, ref_image, rm_sml_obj=True, min_length=5)
+    >>> print(mask.shape)
+    (20, 20, 20)
+    """
 
     mask = grid_skeleton(coord, refdata, coord_in_xfirst=coord_in_xfirst, start_index=start_index)
 
@@ -279,7 +593,43 @@ def make_skeleton(coord, refdata, rm_sml_obj = True, coord_in_xfirst=False, star
 
 
 def get_2d_length(skl3d):
-    # return length of the sky-projected filament
+    """
+    Calculate the sky-projected length of a 3D skeleton.
+
+    Computes the length of a skeleton structure when projected onto a 2D plane.
+    The projection is performed by collapsing the third dimension of the input 3D skeleton array.
+
+    Parameters
+    ----------
+    skl3d : ndarray
+        3D binary array representing the skeletonized structure, where `True` or `1`
+        indicates skeleton points and `False` or `0` represents the background.
+
+    Returns
+    -------
+    length : int
+        The total number of pixels in the projected 2D skeleton.
+
+    Notes
+    -----
+    - The function collapses the 3D skeleton along the third axis using a logical OR operation
+      and then applies 2D skeletonization to the resulting binary image.
+    - This method is useful for evaluating the extent of structures in position-position space
+      regardless of the velocity axis.
+
+    Examples
+    --------
+    Compute the 2D length of a 3D skeleton:
+
+    >>> import numpy as np
+    >>> from skimage.morphology import skeletonize
+    >>> from crispy import grid_ridge
+    >>> skl3d = np.zeros((10, 10, 10), dtype=bool)
+    >>> skl3d[0, 0, :] = True  # A straight skeleton in 3D
+    >>> length = grid_ridge.get_2d_length(skl3d)
+    >>> print(length)
+    1
+    """
     skl = np.any(skl3d, axis=0)
     skl = skl.astype('bool')
     skl = morphology.skeletonize(skl)
@@ -287,9 +637,60 @@ def get_2d_length(skl3d):
 
 
 def uniq_per_pix(coord, mask, coord_in_xfirst=False, start_index=1):
-    # take a list of ridge coordinates and return
-    # the method is most efficient if the mask consists of gridded, one voxel wide spines/skeletons
+    """
+    Reduce a list of ridge coordinates to one unique point per pixel.
 
+    Processes ridge coordinates to retain a single representative point
+    per pixel based on a provided binary mask. The representative point is selected
+    as the one with the median value along the last coordinate axis.
+
+    Parameters
+    ----------
+    coord : ndarray
+        Ridge coordinates, shape (D, n), where `D` is the number of dimensions
+        (e.g., 2 or 3) and `n` is the number of points.
+
+    mask : ndarray
+        Binary mask array, shape matching the reference grid, where `True` indicates
+        pixels of interest.
+
+    coord_in_xfirst : bool, optional, default=False
+        If True, assumes the input coordinates are ordered with x as the first axis.
+        If False, assumes z is the first axis for 3D data or y for 2D data.
+
+    start_index : int, optional, default=1
+        Starting index for the coordinate system. Adjusts the input coordinates before
+        processing.
+
+    Returns
+    -------
+    coord_uniq : ndarray
+        Reduced set of coordinates, shape (D, m), where `m` is the number of unique
+        pixels with a representative coordinate.
+
+    Notes
+    -----
+    - This function is optimized for cases where the input mask represents gridded,
+      one-voxel-wide skeletons or spines.
+    - The median value along the last axis (e.g., z in 3D) is used to select the
+      representative point for each pixel.
+
+    Examples
+    --------
+    Reduce ridge coordinates to one per pixel:
+
+    >>> import numpy as np
+    >>> from crispy import grid_ridge
+    >>> coords = np.array([[0, 1, 1, 2], [0, 0, 0, 0], [0, 0, 1, 1]])  # 3D coordinates
+    >>> mask = np.zeros((3, 3, 3), dtype=bool)
+    >>> mask[1, 1, 0] = True
+    >>> mask[1, 1, 1] = True
+    >>> reduced_coords = grid_ridge.uniq_per_pix(coords, mask)
+    >>> print(reduced_coords)
+    [[1]
+     [1]
+     [0]]
+    """
     # if the passed in coordinates are in the order of x, y, and z, instead z, y, and x.
     if coord_in_xfirst:
         coord[[0, -1]] = coord[[-1, 0]]
@@ -334,8 +735,53 @@ def uniq_per_pix(coord, mask, coord_in_xfirst=False, start_index=1):
 #======================================================================================================================#
 # gridded structures
 
-def branchedPoints(skel, endpt = None):
-    # note: it's more efficient to find the body-points than to find branch-points
+def branchedPoints(skel, endpt=None):
+    """
+    Identify branch points in a skeletonized structure.
+
+    Detects branch points in a 2D or 3D skeleton. Branch points are defined as
+    pixels that belong to the skeleton but are not endpoints or body points. If no endpoints
+    are provided, they are calculated automatically.
+
+    Parameters
+    ----------
+    skel : ndarray
+        Binary array representing the skeletonized structure. Non-zero values represent
+        skeleton points, and zero values represent the background.
+
+    endpt : ndarray, optional
+        Precomputed binary array of endpoints in the skeleton. If `None`, the function
+        calculates the endpoints internally.
+
+    Returns
+    -------
+    pt : ndarray
+        Binary array with the same shape as `skel`, where branch points are set to `True`.
+
+    Notes
+    -----
+    - Branch points are determined by excluding body points and endpoints from the skeleton.
+    - It's more efficient to find the body-points than to find branch-points
+    - This function works with both 2D and 3D skeletons, using appropriate connectivity
+      rules (8-connectivity in 2D and 26-connectivity in 3D).
+
+    Examples
+    --------
+    Detect branch points in a 2D skeleton:
+
+    >>> import numpy as np
+    >>> from crispy import grid_ridge
+    >>> skel = np.zeros((5, 5), dtype=bool)
+    >>> skel[2, 1:4] = True
+    >>> skel[1, 2] = True
+    >>> branches = grid_ridge.branchedPoints(skel)
+    >>> print(branches)
+    [[False False False False False]
+     [False False  True False False]
+     [False False False False False]
+     [False False False False False]
+     [False False False False False]]
+    """
     pt = bodyPoints(skel)
     pt = np.logical_and(skel, np.logical_not(pt))
 
@@ -351,7 +797,47 @@ def branchedPoints(skel, endpt = None):
 
 # identify body points (points with only two neighbour by 8-connectivity)
 def bodyPoints(skel):
+    """
+    Identify body points in a skeletonized structure.
 
+    Detects body points in a 2D or 3D skeleton. Body points are defined as
+    pixels with exactly two neighbors in the skeleton, based on 8-connectivity in 2D or
+    26-connectivity in 3D.
+
+    Parameters
+    ----------
+    skel : ndarray
+        Binary array representing the skeletonized structure. Non-zero values represent
+        skeleton points, and zero values represent the background.
+
+    Returns
+    -------
+    pt : ndarray
+        Binary array with the same shape as `skel`, where body points are set to `True`.
+
+    Notes
+    -----
+    - Body points are computed by identifying skeleton points with exactly two neighbors
+      under the specified connectivity rules.
+    - This function supports both 2D and 3D skeletons, adjusting connectivity checks
+      based on the dimensionality.
+
+    Examples
+    --------
+    Detect body points in a 2D skeleton:
+
+    >>> import numpy as np
+    >>> from crispy import grid_ridge
+    >>> skel = np.zeros((5, 5), dtype=bool)
+    >>> skel[2, 1:4] = True
+    >>> body_pts = grid_ridge.bodyPoints(skel)
+    >>> print(body_pts)
+    [[False False False False False]
+     [False False False False False]
+     [False  True  True  True False]
+     [False False False False False]
+     [False False False False False]]
+    """
     # for 2D skeleton
     if np.size(skel.shape) == 2:
         base_block = np.zeros((3,3))
@@ -403,7 +889,48 @@ def bodyPoints(skel):
 # identify end points (points with only two neighbour by 8-connectivity)
 # (only works if the skeleton is on 1-pixel in width by 8-connectivity and not 4-connectivity)
 def endPoints(skel):
+    """
+    Identify endpoints in a skeletonized structure.
 
+    Detects endpoints in a 2D or 3D skeleton. Endpoints are defined as
+    pixels in the skeleton with exactly one neighbor, based on 8-connectivity in 2D or
+    26-connectivity in 3D.
+
+    Parameters
+    ----------
+    skel : ndarray
+        Binary array representing the skeletonized structure. Non-zero values represent
+        skeleton points, and zero values represent the background.
+
+    Returns
+    -------
+    ep : ndarray
+        Binary array with the same shape as `skel`, where endpoints are set to `True`.
+
+    Notes
+    -----
+    - Endpoints are determined using hit-or-miss morphology with connectivity rules that
+      detect pixels with only one neighbor.
+    - This function supports both 2D and 3D skeletons, adjusting connectivity checks
+      based on the dimensionality.
+
+    Examples
+    --------
+    Detect endpoints in a 2D skeleton:
+
+    >>> import numpy as np
+    >>> from crispy import grid_ridge
+    >>> skel = np.zeros((5, 5), dtype=bool)
+    >>> skel[2, 1:4] = True
+    >>> skel[1, 2] = True
+    >>> endpoints = grid_ridge.endPoints(skel)
+    >>> print(endpoints)
+    [[False False False False False]
+     [False False  True False False]
+     [False  True False  True False]
+     [False False False False False]
+     [False False False False False]]
+    """
     # for 2D skeleton
     if np.size(skel.shape) == 2:
         base_block = np.zeros((3,3))

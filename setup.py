@@ -1,29 +1,23 @@
+import tomli
 from setuptools import setup, find_packages
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+# Read metadata from pyproject.toml
+with open("pyproject.toml", "rb") as f:
+    pyproject_data = tomli.load(f)
+
+project_metadata = pyproject_data["project"]
 
 setup(
-    name="astro-crispy", # Replace with your own username
-    version="1.3.0",
-    author="Michael Chun-Yuan Chen",
-    author_email="chen.m@queensu.ca",
-    description="Computational Ridge Identification with SCMS for Python",
-    long_description=long_description,
+    name=project_metadata["name"],
+    version=project_metadata["version"],
+    author=project_metadata["authors"][0]["name"],
+    author_email=project_metadata["authors"][0]["email"],
+    description=project_metadata["description"],
+    long_description=open(project_metadata["readme"], "r").read(),
     long_description_content_type="text/markdown",
-    url="https://github.com/mcyc/crispy",
+    url=project_metadata["urls"]["Source"],
     packages=find_packages(),
-    install_requires=[
-        'numpy',
-        'scipy',
-        'astropy',
-        'joblib',
-        'scikit-image',
-    ],
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
-        "Operating System :: OS Independent",
-    ],
-    python_requires='>=3.8',
+    install_requires=project_metadata["dependencies"],
+    classifiers=project_metadata["classifiers"],
+    python_requires=project_metadata["requires-python"],
 )

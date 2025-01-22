@@ -15,6 +15,7 @@ dependencies = [
     "astropy",
     "joblib",
     "scikit-image",
+    "scikit-learn",
     "importlib-metadata; python_version < '3.8'",
 ]
 readme = "README.md"

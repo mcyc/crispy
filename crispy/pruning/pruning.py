@@ -121,13 +121,38 @@ def endPoints(skel):
 
 
 def walk_through_segment_3D(segment):
-    '''
-    :param segment: <ndarray>
-        a skeleton segment that does not contain intersections (i.e. branches)
-    :return:
-        a list of coordinate indices ordered by their relative position along the segment, start from the end closest
-        to the origin
-    '''
+    """
+    Traverse a 3D skeleton segment to obtain an ordered list of pixel coordinates.
+
+    This function processes a skeleton segment that does not contain branches or intersections
+    and returns an ordered list of pixel coordinates. The traversal starts from the endpoint
+    closest to the origin.
+
+    Parameters
+    ----------
+    segment : ndarray
+        A binary 3D array representing the skeleton segment. Non-zero values indicate
+        skeleton pixels, and zero values represent the background.
+
+    Returns
+    -------
+    idx_list : list of tuple
+        A list of 3D coordinate tuples ordered by their position along the segment.
+        The traversal begins from the endpoint nearest to the origin.
+
+    Notes
+    -----
+    - This function assumes that the segment has exactly two endpoints and does not touch the
+      edges of the array.
+    - The traversal may fail if the segment width exceeds one pixel at any point due to
+      imperfect skeletonization.
+    - Endpoints are detected using the `endPoints` function.
+
+    Raises
+    ------
+    ValueError
+        If the segment has less than two pixels or more than one pixel-wide connectivity.
+    """
     # note: this only works if the endpoints does not touch the edge
 
     segment = copy.copy(segment)
@@ -174,13 +199,38 @@ def walk_through_segment_3D(segment):
 
 
 def walk_through_segment_2D(segment):
-    '''
-    :param segment: <ndarray>
-        a skeleton segment that does not contain intersections (i.e. branches)
-    :return:
-        a list of coordinate indices ordered by their relative position along the segment, start from the end closest
-        to the origin
-    '''
+    """
+    Traverse a 2D skeleton segment to obtain an ordered list of pixel coordinates.
+
+    This function processes a skeleton segment that does not contain branches or intersections
+    and returns an ordered list of pixel coordinates. The traversal starts from the endpoint
+    closest to the origin.
+
+    Parameters
+    ----------
+    segment : ndarray
+        A binary 2D array representing the skeleton segment. Non-zero values indicate
+        skeleton pixels, and zero values represent the background.
+
+    Returns
+    -------
+    idx_list : list of tuple
+        A list of 2D coordinate tuples ordered by their position along the segment.
+        The traversal begins from the endpoint nearest to the origin.
+
+    Notes
+    -----
+    - This function assumes that the segment has exactly two endpoints and does not touch the
+      edges of the array.
+    - The traversal may fail if the segment width exceeds one pixel at any point due to
+      imperfect skeletonization.
+    - Endpoints are detected using the `endPoints` function.
+
+    Raises
+    ------
+    ValueError
+        If the segment has less than two pixels or more than one pixel-wide connectivity.
+    """
     # note: this only works if the endpoints does not touch the edge
 
     segment = copy.copy(segment)
@@ -225,30 +275,53 @@ def walk_through_segment_2D(segment):
 
     return idx_list
 
+
 def init_lengths(labelisofil, array_offsets=None, img=None, use_skylength=True):
-    '''
-    3D version of the same function borrowed from Koch's FilFinder, with some modifications and hacks
-    This is a wrapper on fil_length for running on the branches of the
-    skeletons.
+    """
+    Compute lengths and intensities for branches in 3D skeletons.
+
+    This function calculates the lengths and average intensities of branches
+    in labeled skeletons, accounting for both the full 3D length and the
+    sky-projected length if specified.
+
     Parameters
     ----------
-    labelisofil : list
-        Contains individual arrays for each skeleton where the
-        branches are labeled and the intersections have been removed.
-    filbranches : list
-        Contains the number of branches in each skeleton.
-    array_offsets : List
-        The indices of where each filament array fits in the
-        original image.
-    img : numpy.ndarray
-        Original image.
+    labelisofil : list of ndarray
+        A list of 3D labeled skeleton arrays. Each array contains skeleton branches
+        where intersections have been removed, and branches are labeled with unique integers.
+
+    array_offsets : list of ndarray, optional, default=None
+        Indices specifying where each skeleton array fits in the original image.
+        If None, offsets default to ones.
+
+    img : ndarray, optional, default=None
+        The original 3D intensity image. If provided, the average intensity along
+        each branch is computed. If not provided, the intensity is assumed to be uniform.
+
+    use_skylength : bool, optional, default=True
+        If True, calculates the sky-projected length (ignoring the velocity axis).
+        If False, calculates the full 3D length in PPV space.
+
     Returns
     -------
-    branch_properties: dict
-        Contains the lengths and intensities of the branches.
-        Keys are *length* and *intensity*.
-    '''
+    branch_properties : dict
+        A dictionary containing the following keys:
+        - `length`: A list of branch lengths for each skeleton.
+        - `intensity`: A list of average intensities for each branch.
+        - `pixels`: A list of pixel coordinates for each branch.
 
+    Notes
+    -----
+    - Branch lengths are calculated using the `walk_through_segment_3D` function.
+    - Sky-projected lengths are computed by ignoring the velocity axis during length calculation.
+    - The function pads branch arrays to prevent edge-related errors during traversal.
+
+    Raises
+    ------
+    ValueError
+        If the shape of `img` does not match the shape of the skeleton arrays in `labelisofil`.
+
+    """
     print("getting branch_properties")
 
     num = len(labelisofil)
@@ -342,16 +415,35 @@ def init_branch_properties(labelisofil, ndim, img=None, use_skylength=True):
 
 
 def segment_len(wlk_idx, remove_axis=None):
-    '''
-    Take the ordered indices of a skeleton segment, with no intersections, and calculate its length
-    Note: the distance being calculated may be short by ~1 pixel in length, as the distance is calculated from the
-    centre of each pixel
-    :param wlk_idx:
-    :param remove_axis: <int>
-        if not None, the axis to mask out when calculate the segment length (useful if the only on-sky length, rather
-        than the ppv length, is interested
-    :return:
-    '''
+    """
+    Calculate the length of a skeleton segment.
+
+    This function computes the length of a skeleton segment from an ordered list
+    of its pixel coordinates. The length is calculated as the sum of Euclidean distances
+    between consecutive pixels. Optionally, a specified axis can be excluded from the
+    calculation, which is useful for computing sky-projected lengths.
+
+    Parameters
+    ----------
+    wlk_idx : list of tuple
+        Ordered list of pixel coordinates representing the skeleton segment.
+
+    remove_axis : int, optional, default=None
+        Axis to exclude from the length calculation. If None, the full length is computed
+        in all dimensions.
+
+    Returns
+    -------
+    length : float
+        The computed length of the skeleton segment.
+
+    Notes
+    -----
+    - The calculated length may underestimate the actual length by approximately one pixel
+      due to measuring from the center of each pixel.
+    - Excluding an axis (e.g., velocity in PPV space) computes the sky-projected length.
+
+    """
     crd_diff = np.diff(np.swapaxes(wlk_idx, 0, 1) * 1.0)
     if remove_axis is not None:
         crd_diff[remove_axis, :] = 0.0
@@ -361,12 +453,31 @@ def segment_len(wlk_idx, remove_axis=None):
 
 
 def coord_list(skel_list):
-    '''
-    Return the coordinate of any none-zero pixels in a list
-    :param skel_list:
-    :return:
-    crd_list <>
-    '''
+    """
+    Extract coordinates of non-zero pixels from a list of skeleton arrays.
+
+    This function processes a list of binary skeleton arrays and returns the
+    coordinates of all non-zero pixels (i.e., skeleton points) as tuples.
+
+    Parameters
+    ----------
+    skel_list : list of ndarray
+        A list of binary arrays representing skeletons. Non-zero values indicate
+        skeleton points, and zero values represent the background.
+
+    Returns
+    -------
+    crd_list : list of list of tuple
+        A nested list where each element is a list of tuples. Each tuple contains
+        the coordinates of a skeleton point for a given array in `skel_list`.
+
+    Notes
+    -----
+    - The output preserves the order of the input list, with each skeleton's
+      coordinates grouped separately.
+    - This function is useful for extracting and processing skeleton pixel coordinates.
+
+    """
     crd_list = []
     for skel in skel_list:
         crd = np.argwhere(skel != 0)
@@ -376,26 +487,59 @@ def coord_list(skel_list):
 
 
 def remove_bad_ppv_branches(labBodyPtAry, num_lab, refStructure=None, max_pp_length=9.0, v2pp_ratio=1.5, method="full"):
-    '''
-    Take a 3D labelled body-point array (i.e. with the intersections removed) and remove branches that are likely
-    unphysical. Specifically, branches that are on the order of a beam width or on the plane of the sky
-    (i.e., pp-projection) and long aspect ratio
+    """
+    Remove unphysical branches from a labeled 3D skeleton in PPV space.
 
-    Warning: this method may not be very effective if the said branch segment is actually part of a longer, contineous,
-    intersection free segment.
+    This function identifies and removes branches that are likely unphysical, such as
+    those with small projected lengths in the position-position (PP) plane or with
+    high velocity-to-length ratios. Optionally, a faster approximation method can be
+    used for branch filtering.
 
-    :param labBodyPtAry: <array>
-        Array of the skeletons with the body-points removed and branches labelled.
-    :param num_lab: <int>
-        number of branches in the labelled array
-    :param refStructure: <array>
-        Array of the reference structure (i.e., full skeleton)
-    :param v2pp_ratio: <array>
-        The minimum aspect ratio between the project branch length in v-space and in pp-space
-    :return: <array>
-        The reference structure with the bad ppv branches removed
-    '''
+    Parameters
+    ----------
+    labBodyPtAry : ndarray
+        A 3D array of the skeleton with body points removed, where branches are labeled
+        with unique integers.
 
+    num_lab : int
+        Number of labeled branches in the array.
+
+    refStructure : ndarray, optional, default=None
+        The reference structure array (full skeleton). If None, it is derived from
+        `labBodyPtAry`.
+
+    max_pp_length : float, optional, default=9.0
+        Maximum allowed length of a branch in the PP plane. Branches shorter than this
+        threshold are evaluated for removal.
+
+    v2pp_ratio : float, optional, default=1.5
+        Minimum allowed velocity-to-length ratio. Branches exceeding this ratio are
+        removed.
+
+    method : {"full", "quick"}, optional, default="full"
+        Method for branch filtering:
+        - "full": Performs a detailed analysis using branch traversal and length calculations.
+        - "quick": Uses a faster, approximate method for filtering based on pixel counts.
+
+    Returns
+    -------
+    filtered_structure : ndarray
+        A binary array of the reference structure with unphysical branches removed.
+
+    Notes
+    -----
+    - The "full" method uses `walk_through_segment_3D` to accurately calculate branch
+      lengths and velocity ratios.
+    - The "quick" method approximates branch lengths by counting pixels, which may
+      be less accurate for longer branches.
+    - Branch removal may fail if `labBodyPtAry` and `refStructure` have mismatched shapes.
+
+    Raises
+    ------
+    ValueError
+        If the shapes of `labBodyPtAry` and `refStructure` do not match.
+
+    """
     if refStructure is None:
         refStructure = labBodyPtAry.copy()
         refStructure[refStructure != 0] = 1
@@ -454,35 +598,62 @@ def remove_bad_ppv_branches(labBodyPtAry, num_lab, refStructure=None, max_pp_len
 
 
 def pre_graph_3D(labelisofil, branch_properties, interpts, ends, w=0.0):
-    '''
-    This function converts the skeletons into a graph object compatible with
-    networkx. The graphs have nodes corresponding to end and
-    intersection points and edges defining the connectivity as the branches
-    with the weights set to the branch length.
+    """
+    Convert 3D skeletons into graph representations with weighted edges.
+
+    This function generates graph representations of 3D skeletons where nodes represent
+    end points and intersection points, and edges represent branches. Edge weights are
+    calculated using branch lengths and intensities.
+
     Parameters
     ----------
-    labelisofil : list
-        Contains individual arrays for each skeleton where the
-        branches are labeled and the intersections have been removed.
+    labelisofil : list of ndarray
+        A list of 3D labeled skeleton arrays, where branches are labeled with unique
+        integers, and intersection points are removed.
+
     branch_properties : dict
-        Contains the lengths and intensities of all branches.
-    interpts : list
-        Contains the pixels which belong to each intersection.
-    ends : list
-        Contains the end pixels for each skeleton.
+        A dictionary containing properties of the branches, with the following keys:
+        - `length`: List of branch lengths.
+        - `intensity`: List of average intensities for each branch.
+
+    interpts : list of list of ndarray
+        Intersection points for each skeleton, with each entry containing the coordinates
+        of pixels belonging to an intersection.
+
+    ends : list of ndarray
+        Endpoints for each skeleton.
+
+    w : float, optional, default=0.0
+        Weighting factor for branch lengths and intensities in edge weight calculation.
+        Must be between 0.0 (length-only weighting) and 1.0 (intensity-only weighting).
+
     Returns
     -------
-    end_nodes : list
-        Contains the nodes corresponding to end points.
-    inter_nodes : list
-        Contains the nodes corresponding to intersection points.
     edge_list : list
-        Contains the connectivity information for the graphs.
-    nodes : list
-        A complete list of all of the nodes. The other nodes lists have
-        been separated as they are labeled differently.
-    '''
+        List of edges in the graph. Each edge is represented as a tuple:
+        `(node_1, node_2, edge_properties)`, where `edge_properties` includes
+        branch length and intensity.
 
+    nodes : list
+        List of all nodes in the graph, including endpoints and intersection points.
+
+    loop_edges : list
+        List of loop edges (edges connecting two intersection nodes through multiple
+        branches).
+
+    Notes
+    -----
+    - Nodes corresponding to intersection points are labeled alphabetically. For graphs
+      with more than 26 intersections, labels extend to AA, AB, etc.
+    - The `path_weighting` function calculates edge weights using both length and
+      intensity, with the relative contribution controlled by `w`.
+
+    Raises
+    ------
+    ValueError
+        If `w` is not between 0.0 and 1.0.
+
+    """
     num = len(labelisofil)
 
     end_nodes = []
@@ -600,35 +771,13 @@ def pre_graph_3D(labelisofil, branch_properties, interpts, ends, w=0.0):
 
 
 def pre_graph_3D_old(labelisofil, branch_properties, interpts, ends, w=0.5):
-    '''
+    """
     The 3D version of Eric Koch's pre_graph function in FilFinder
     This function converts the skeletons into a graph object compatible with
     networkx. The graphs have nodes corresponding to end and
     intersection points and edges defining the connectivity as the branches
     with the weights set to the branch length.
-    Parameters
-    ----------
-    labelisofil : list
-        Contains individual arrays for each skeleton where the
-        branches are labeled and the intersections have been removed.
-    branch_properties : dict
-        Contains the lengths and intensities of all branches.
-    interpts : list
-        Contains the pixels which belong to each intersection.
-    ends : list
-        Contains the end pixels for each skeleton.
-    Returns
-    -------
-    end_nodes : list
-        Contains the nodes corresponding to end points.
-    inter_nodes : list
-        Contains the nodes corresponding to intersection points.
-    edge_list : list
-        Contains the connectivity information for the graphs.
-    nodes : list
-        A complete list of all of the nodes. The other nodes lists have
-        been separated as they are labeled differently.
-    '''
+    """
 
     num = len(labelisofil)
 
@@ -742,57 +891,67 @@ def pre_graph_3D_old(labelisofil, branch_properties, interpts, ends, w=0.5):
 def get_furthest_nodes(ends, return_dist=False):
     '''
     Take a list of end pixels for each skeleton, and return a list of coordinates of endpoints that are furtherest from
-     each other : list
-
-    :param ends: <List>
-        Contains the end pixels for each skeleton.
-    :param return_dist: <Boolean>
-        Indicate whether or not to return a list of maximum distances
-    :return maxdst_ends_list <List>:
-        A list of coordinates corresponding to the endpoint pairs in each skeleton that are furthest separated from
-        each others
-    :return maxdst_ends_list <List, optional>:
-        A list of Ecludian distances between the endpoint pairs found in maxdst_ends_list
-
-
+    <Note implemented>
     '''
     return None
 
 
-def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths,
-                   img_scale, verbose=False, save_png=False, save_name=None):
-    '''
-    3D version of the main_length() function from fil_finder/length.py, with the verbose, save_png, and save_name
-    disabled given we are dealing with a 3D structure
+def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths, img_scale, verbose=False, save_png=False, save_name=None):
+    """
+    Compute the main lengths of 3D skeletons and generate longest path arrays.
 
-    Wraps previous functionality together for all of the skeletons in the
-    image. To find the overall length for each skeleton, intersections are
-    added back in, and any extraneous pixels they bring with them are deleted.
+    This function calculates the overall lengths of skeletons in a 3D image by identifying
+    and preserving the longest paths. Intersections are added back to the skeletons, and
+    extraneous pixels introduced by intersections are removed.
+
     Parameters
     ----------
     max_path : list
-        Contains the paths corresponding to the longest lengths for
-        each skeleton.
+        List of paths corresponding to the longest lengths for each skeleton.
+
     edge_list : list
-        Contains the connectivity information for the graphs.
-    labelisofil : list
-        Contains individual arrays for each skeleton where the
-        branches are labeled and the intersections have been removed.
-    interpts : list
-        Contains the pixels which belong to each intersection.
+        List of edges representing connectivity information for the skeleton graphs.
+
+    labelisofil : list of ndarray
+        List of 3D labeled skeleton arrays. Each array contains skeleton branches
+        with unique integer labels and no intersection points.
+
+    interpts : list of list of ndarray
+        Intersection points for each skeleton, with each entry containing the
+        coordinates of pixels belonging to an intersection.
+
     branch_lengths : list
         Lengths of individual branches in each skeleton.
+
     img_scale : float
-        Conversion from pixel to physical units.
+        Conversion factor from pixel units to physical units.
+
+    verbose : bool, optional, default=False
+        If True, prints detailed information about the process (currently disabled for 3D).
+
+    save_png : bool, optional, default=False
+        If True, saves 2D visualizations of the skeletons (disabled for 3D).
+
+    save_name : str, optional, default=None
+        Name for saving output PNGs (currently unused for 3D).
 
     Returns
     -------
     main_lengths : list
-        Lengths of the skeletons.
-    longpath_arrays : list
-        Arrays of the longest paths in the skeletons.
-    '''
+        List of overall lengths for each skeleton, in physical units.
 
+    longpath_arrays : ndarray
+        Binary 3D array representing the longest paths for all skeletons. Non-zero
+        values indicate pixels belonging to the longest paths.
+
+    Notes
+    -----
+    - Intersections are added back to the skeleton, and extraneous pixels are removed
+      using a recursive pruning process.
+    - The `max_path` input determines the longest path in each skeleton.
+    - This function is adapted from the 2D `main_length` function in FilFinder and
+      includes modifications for 3D structures.
+    """
     def eight_con():
         '''
         3D version of eight_con() from fil_finder/utilities.py
@@ -874,14 +1033,36 @@ def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths,
 
 
 def save_labskel2fits(labelisofil, outpath, header):
-    '''
-    Saving a list of labelled skeletons into a single fits file
-    :param labelisofil:
-    :param outpath:
-    :param header:
-    :return:
-    '''
+    """
+    Save labeled skeletons into a single FITS file.
 
+    This function combines a list of labeled skeleton arrays into a single array
+    and saves it as a FITS file, retaining the original header information.
+
+    Parameters
+    ----------
+    labelisofil : list of ndarray
+        List of labeled skeleton arrays. Each array contains skeleton branches labeled
+        with unique integers.
+
+    outpath : str
+        File path to save the output FITS file.
+
+    header : astropy.io.fits.Header
+        FITS header to be included in the output file.
+
+    Returns
+    -------
+    None
+        The function saves the labeled skeletons to a FITS file and does not return anything.
+
+    Notes
+    -----
+    - The labeled skeleton arrays are combined into a single 3D array using a sum
+      operation along the list dimension.
+    - Overlapping skeletons in the combined array may have additive labeling.
+
+    """
     labelisofil = np.array(labelisofil)
     data = np.nansum(labelisofil, axis=0)
 
@@ -889,11 +1070,42 @@ def save_labskel2fits(labelisofil, outpath, header):
 
 
 def classify_structure(skeleton):
-    '''
-    :param skeleton:
-    :return:
-    '''
+    """
+    Classify the components of a skeleton into labeled branches, intersections, and endpoints.
 
+    This function processes a binary skeleton array, identifies its endpoints and
+    intersection points, and removes intersections to separate individual branches.
+    It returns labeled arrays for the branches and lists of intersection points and endpoints.
+
+    Parameters
+    ----------
+    skeleton : ndarray
+        Binary array representing the skeletonized structure. Non-zero values indicate
+        skeleton points, and zero values represent the background.
+
+    Returns
+    -------
+    labelisofil : list of ndarray
+        List of labeled arrays, where each array corresponds to a skeleton with intersections
+        removed, and branches are labeled with unique integers.
+
+    interpts : list of list of tuple
+        List of intersection points for each skeleton, with each intersection containing
+        the coordinates of pixels belonging to it.
+
+    ends : list of list of tuple
+        List of endpoint coordinates for each skeleton.
+
+    Notes
+    -----
+    - The function uses 8-connectivity for 2D skeletons and maximum connectivity for
+      higher dimensions to label individual structures.
+    - Endpoints are identified using the `endPoints` function.
+    - Intersection points are labeled separately, and their coordinates are stored
+      in `interpts`.
+    - Branches are labeled after removing intersections from the skeleton.
+
+    """
     def labCrdList(labelled, num, refStructure):
         '''
         Place the coordinates of individual, labelled structure a list

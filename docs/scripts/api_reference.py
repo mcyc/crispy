@@ -39,6 +39,13 @@ API_REFERENCE = {
             {'name': 'crispy.pruning.pruning', 'type': 'module', 'description': '''No description available.'''}
         ]
     },
+    'crispy.pruning.Skeleton': {
+        'module': 'crispy.pruning.Skeleton',
+        'description': '''Undocumented''',
+        'members': [
+            {'name': 'Skeleton', 'type': 'class', 'description': '''Undocumented'''}
+        ]
+    },
     'crispy.pruning.fil_finder': {
         'module': 'crispy.pruning.fil_finder',
         'description': '''Undocumented''',
@@ -98,20 +105,20 @@ API_REFERENCE = {
         'members': [
             {'name': 'bodyPoints', 'type': 'function', 'description': '''Undocumented'''},
             {'name': 'branchedPoints', 'type': 'function', 'description': '''Undocumented'''},
-            {'name': 'classify_structure', 'type': 'function', 'description': ''':param skeleton:.'''},
-            {'name': 'coord_list', 'type': 'function', 'description': '''Return the coordinate of any none-zero pixels in a list.'''},
+            {'name': 'classify_structure', 'type': 'function', 'description': '''Classify the components of a skeleton into labeled branches, intersections, and endpoints.'''},
+            {'name': 'coord_list', 'type': 'function', 'description': '''Extract coordinates of non-zero pixels from a list of skeleton arrays.'''},
             {'name': 'endPoints', 'type': 'function', 'description': '''Undocumented'''},
             {'name': 'get_furthest_nodes', 'type': 'function', 'description': '''Take a list of end pixels for each skeleton, and return a list of coordinates of endpoints that are furtherest from.'''},
             {'name': 'init_branch_properties', 'type': 'function', 'description': '''Undocumented'''},
-            {'name': 'init_lengths', 'type': 'function', 'description': '''3D version of the same function borrowed from Koch's FilFinder, with some modifications and hacks.'''},
-            {'name': 'main_length_3D', 'type': 'function', 'description': '''3D version of the main_length() function from fil_finder/length.'''},
-            {'name': 'pre_graph_3D', 'type': 'function', 'description': '''This function converts the skeletons into a graph object compatible with.'''},
+            {'name': 'init_lengths', 'type': 'function', 'description': '''Compute lengths and intensities for branches in 3D skeletons.'''},
+            {'name': 'main_length_3D', 'type': 'function', 'description': '''Compute the main lengths of 3D skeletons and generate longest path arrays.'''},
+            {'name': 'pre_graph_3D', 'type': 'function', 'description': '''Convert 3D skeletons into graph representations with weighted edges.'''},
             {'name': 'pre_graph_3D_old', 'type': 'function', 'description': '''The 3D version of Eric Koch's pre_graph function in FilFinder.'''},
-            {'name': 'remove_bad_ppv_branches', 'type': 'function', 'description': '''Take a 3D labelled body-point array (i.'''},
-            {'name': 'save_labskel2fits', 'type': 'function', 'description': '''Saving a list of labelled skeletons into a single fits file.'''},
-            {'name': 'segment_len', 'type': 'function', 'description': '''Take the ordered indices of a skeleton segment, with no intersections, and calculate its length.'''},
-            {'name': 'walk_through_segment_2D', 'type': 'function', 'description': ''':param segment: <ndarray>.'''},
-            {'name': 'walk_through_segment_3D', 'type': 'function', 'description': ''':param segment: <ndarray>.'''}
+            {'name': 'remove_bad_ppv_branches', 'type': 'function', 'description': '''Remove unphysical branches from a labeled 3D skeleton in PPV space.'''},
+            {'name': 'save_labskel2fits', 'type': 'function', 'description': '''Save labeled skeletons into a single FITS file.'''},
+            {'name': 'segment_len', 'type': 'function', 'description': '''Calculate the length of a skeleton segment.'''},
+            {'name': 'walk_through_segment_2D', 'type': 'function', 'description': '''Traverse a 2D skeleton segment to obtain an ordered list of pixel coordinates.'''},
+            {'name': 'walk_through_segment_3D', 'type': 'function', 'description': '''Traverse a 3D skeleton segment to obtain an ordered list of pixel coordinates.'''}
         ]
     },
     'crispy.scms': {

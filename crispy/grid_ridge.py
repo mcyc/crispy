@@ -39,13 +39,14 @@ def grid_skel(readFile, imgFile, writeFile, **kwargs):
     **kwargs : dict, optional
         Additional keyword arguments to customize the behavior of the `clean_grid` function.
         Defaults are:
-        - `coord_in_xfirst`: bool, default=True
+
+        coord_in_xfirst : bool, default=True
             Whether the input coordinates have the x-dimension first.
-        - `start_index`: int, default=0
+        start_index : int, default=0
             Starting index for gridding the skeleton.
-        - `min_length`: int, default=6
+        min_length : int, default=6
             Minimum length of structures to retain.
-        - `method`: str, default="robust"
+        method : str, default="robust"
             Gridding method, either "robust" or "fast".
 
     Returns
@@ -63,7 +64,9 @@ def grid_skel(readFile, imgFile, writeFile, **kwargs):
     Grid CRISPy results and save them to a FITS file:
 
     >>> from crispy import grid_ridge
-    >>> grid_ridge.grid_skel("results.txt", "reference_image.fits", "gridded_results.fits", min_length=10, method="fast")
+    >>> grid_ridge.grid_skel("results.txt", "reference_image.fits", "gridded_results.fits", min_length=10,
+    method="fast")
+
     """
     kwargs_default = dict(coord_in_xfirst=True, start_index=0, min_length=6, method="robust")
     kwargs = { **kwargs_default, **kwargs}

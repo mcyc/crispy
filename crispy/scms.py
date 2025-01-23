@@ -200,10 +200,6 @@ def wgauss_n_filtered_points(X, G, h, weights, f_h=5):
     -----
     - The filtering step significantly reduces the number of data points to consider,
       which improves the efficiency of subsequent calculations.
-    - The Gaussian kernel is computed as:
-      \[
-      c = \exp\left(-0.5 \cdot \frac{\|X - G\|^2}{h^2}\right)
-      \]
 
     Examples
     --------
@@ -709,9 +705,9 @@ def euclidean_dist(X, G):
     - This function is useful for calculating distances and displacements required
       in SCMS-based ridge detection.
     - The Euclidean distance is computed as:
-      \[
-      \text{distance} = \sqrt{\sum_{d=1}^D (G_{ij} - X_{ik})^2}
-      \]
+
+      .. math::
+         \text{distance} = \sqrt{\sum_{d=1}^D (G_{ij} - X_{ik})^2}
 
     Examples
     --------
@@ -767,12 +763,8 @@ def vectorized_gaussian(X, G, h):
 
     Notes
     -----
-    - The Gaussian kernel is computed as:
-      \[
-      c = \exp\left(-0.5 \cdot \frac{\|X - G\|^2}{h^2}\right)
-      \]
-    - This function is optimized to handle pairwise distance calculations and kernel
-      evaluations efficiently.
+    This function is optimized to handle pairwise distance calculations and kernel
+    evaluations efficiently.
 
     Examples
     --------

@@ -3,14 +3,14 @@ Installation
 .. note::
 
    **Recommended Install**
-    CRISPy is currently undergoing rapid developments,
+    CRISPy is actively being developed at the moment,
     install from the source (see Option 3) to stay up-to-date with the latest version.
 
 System Requirements
 --------------------
 CRISPy is compatible with the following environments:
 - Python 3.8 or later.
-- Dependencies include `NumPy`, `Astropy`
+- Dependencies include `numpy`, `astropy`, `scipy`, `scikit-image` and `scikit-learn`.
 
 Instructions
 -------------
@@ -33,12 +33,12 @@ Instructions
         pip install -e .
 
 
-   To use a specific version using a tag, for example, v1.4.2, run the following after
+   To use a specific version using a tag, for example, v1.3.0, run the following after
    the initial install:
 
    .. code-block:: bash
 
-        git checkout v1.4.2
+        git checkout v1.3.0
         git pull
 
    .. note::
@@ -56,7 +56,7 @@ Instructions
 
    .. code-block:: bash
 
-       pip install numpy astropy spectral-cube pyspeckit
+       pip install numpy scipy astropy joblib scikit-image scikit-learn
 
 
 Verification

@@ -6,7 +6,7 @@
 API Reference
 =============
 
-This is **MUFASA**'s class and function reference. In addition to the table below,
+This is **CRISPy**'s class and function reference. In addition to the table below,
 you can also search with the search bar located on the top right corner of the webpage.
 
 .. toctree::
@@ -14,7 +14,7 @@ you can also search with the search bar located on the top right corner of the w
    :hidden:
 
    {% for module in API_REFERENCE -%}
-   {% if module.startswith('mufasa.')
+   {% if module.startswith('crispy.')
          and module.count('.') == 1
          and '._' not in module -%}
    {{ module }}

@@ -31,7 +31,7 @@ metadata = load_metadata()
 project = metadata.get('name', 'Unknown Project')
 release = metadata.get('version', '0.0.1')
 version = ".".join(release.split(".")[:2])
-author = metadata.get('authors', [{'name': 'Unknown Author'}])[0]['name']
+author = "Mike Chen" #metadata.get('authors', [{'name': 'Unknown Author'}])[0]['name']
 copyright = f"2025, {author}"
 github_url = metadata.get('repository', None)
 
@@ -98,4 +98,5 @@ html_sidebars = {
     "quick_start": [],
     "installation": [],
     "guides": [],
+    "tutorials/index": [],
 }

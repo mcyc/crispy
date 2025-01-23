@@ -1,6 +1,8 @@
 ## CRISPy
 Computational Ridge Identification with SCMS for Python
 
+[![Documentation Status](https://readthedocs.org/projects/crispy-learn/badge/?version=latest)](https://mufasa.readthedocs.io/en/latest/)
+
 ## Overview
 
 CRISPy is a Python library for identifying density ridges in multi-dimensional data using 

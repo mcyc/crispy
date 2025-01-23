@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel", "build"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "astro-crispy"
+name = "crispy-learn"
 version = "1.3.0-dev0"
 description = "Computational Ridge Identification with SCMS for Python"
 requires-python = ">=3.8"
@@ -19,7 +19,6 @@ dependencies = [
     "importlib-metadata; python_version < '3.8'",
 ]
 readme = "README.md"
-
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
@@ -31,6 +30,19 @@ classifiers = [
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Astronomy",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=7.3.7",
+    "sphinx-rtd-theme>=1.3", #,<2.0
+    "sphinx-autodoc-typehints>=2.3.0",
+    "nbsphinx>=0.9.6",
+    "sphinx-copybutton>=0.5.2",
+    "pydata-sphinx-theme>=0.15.3",
+    "numpydoc>=1.2.0", # ",<2.0"
+    "sphinx-issues>=2.0",
+    "sphinxext-opengraph>=0.9"
 ]
 
 [tool.setuptools.packages.find]

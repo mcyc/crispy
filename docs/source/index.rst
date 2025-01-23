@@ -27,18 +27,10 @@ When publishing with **CRISPy**, please cite the following for the software:
     1. Chen, M. C.-Y., et al. "Velocity-Coherent Filaments in NGC 1333: Evidence for Accretion Flow?"
        ApJ (`2020 <https://ui.adsabs.harvard.edu/abs/2020ApJ...891...84C/abstract>`_).
 
-and the statistical framework:
+and the following for the statistical framework:
 
-    2. Chen, Y.-C., et al. "Cosmic Web Reconstruction through Density Ridges: Method and Algorithm."
-       MNRAS (`2015 <https://arxiv.org/abs/1501.05303>`_).
-
-    3. Chen, Y.-C., et al. "Generalized Mode and Ridge Estimation."
+    2. Chen, Y.-C., et al. "Generalized Mode and Ridge Estimation."
        (`2014 <https://arxiv.org/abs/1406.1803>`_).
-
-For further reference on the initial development of SCMS, please see:
-
-    4. Ozertem, U., and Erdogmus, D. "Locally Defined Principal Curves and Surfaces."
-       JMLR (`2011 <https://jmlr.org>`_).
 
 Navigation
 ---------------------

@@ -10,7 +10,7 @@ System Requirements
 --------------------
 CRISPy is compatible with the following environments:
 - Python 3.8 or later.
-- Dependencies include `numpy`, `astropy`, `scipy`, `scikit-image` and `scikit-learn`.
+- Dependencies include `numpy`, `astropy`, `scipy`, `scikit-image`, and `scikit-learn`.
 
 Instructions
 -------------

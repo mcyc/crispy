@@ -1,7 +1,7 @@
 ## CRISPy
 Computational Ridge Identification with SCMS for Python
 
-[![Documentation Status](https://readthedocs.org/projects/crispy-learn/badge/?version=latest)](https://crispy.readthedocs.io/en/latest/)
+[![Documentation Status](https://readthedocs.org/projects/crispy-learn/badge/?version=latest)](https://crispy-learn.readthedocs.io/en/latest/)
 
 ## Overview
 

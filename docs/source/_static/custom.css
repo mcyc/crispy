@@ -1,0 +1,136 @@
+/* Light mode navbar */
+html[data-theme="light"] .navbar {
+    background-color: #EEEEEE !important;
+    --pst-color-text-muted: rgb(77, 77, 77);
+}
+
+/* Dark mode navbar */
+html[data-theme="dark"] .navbar {
+    background-color: #222831 !important;
+    --pst-color-text-muted: rgb(192, 192, 192);
+}
+
+.navbar-brand img {
+    max-height: 100px; /* Adjust as needed */
+    width: auto;
+}
+
+/* Description block for API search table */
+/* Style for the entire sk-apisearch-desc container */
+.sk-apisearch-desc {
+    font-size: 0.95rem;
+    color: var(--pst-color-text-secondary); /* Ensure secondary text color */
+    line-height: 1.5;
+    margin-bottom: 0.15rem; /* Ensure no extra spacing below the container */
+}
+
+/* Specific styling for captions inside sk-apisearch-desc */
+.sk-apisearch-desc .caption {
+    font-size: 0.7rem; /* Slightly smaller than the main description */
+    color: var(--pst-color-text-muted); /* Muted color for captions */
+    margin-top: 0.1rem; /* Minimal spacing between description and caption */
+}
+
+/* Specific styling for links inside captions */
+.sk-apisearch-desc .caption a {
+    color: var(--pst-color-text-muted);
+    text-decoration: none;
+}
+
+/* Hover state for links inside captions */
+.sk-apisearch-desc .caption a:hover {
+    text-decoration: underline;
+    color: var(--pst-color-text-base); /* Brighter on hover */
+}
+
+/* General styling for links inside sk-apisearch-desc */
+.sk-apisearch-desc a {
+    color: var(--pst-color-primary); /* Primary color for links */
+    text-decoration: underline;
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+}
+
+/* Hover state for links inside sk-apisearch-desc */
+.sk-apisearch-desc a:hover {
+    text-decoration: underline;
+    color: var(--pst-color-text-base) !important; /* Brighten on hover */
+}
+
+/* Style for inline mod (module) links inside sk-apisearch-desc */
+.sk-apisearch-desc .caption .pre {
+    font-family: var(--pst-font-family-monospace, monospace);
+    font-size: 0.7rem; /* Adjusted for better readability */
+    font-weight: var(--pst-font-weight-caption, 300);
+    color: var(--pst-color-text-muted); /* Muted color for modules */
+    margin-top: 0.1rem;
+    background-color: transparent;
+    padding: 0;
+}
+
+/* Style for paragraphs within sk-apisearch-desc */
+.sk-apisearch-desc p {
+    margin: 0; /* Tighten spacing */
+}
+
+
+button {
+    all: unset; /* Resets all styles to default */
+    padding: 0 0.5rem;
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* Base button style */
+div.dt-paging button.dt-paging-button {
+    all: unset; /* Start clean */
+    padding: 0 0.5rem;
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    color: var(--pst-color-on-surface);
+}
+
+
+
+
+
+
+span.pre {
+    border: none !important; /* Ensure no border is applied */
+    box-shadow: none !important; /* Remove any shadow */
+    padding: 0 !important; /* Reset any padding */
+    margin: 0 !important; /* Reset any margin */
+    background: transparent !important; /* Clear background if needed */
+    white-space: nowrap; /* Retain nowrap behavior if desired */
+}
+
+
+.sk-apisearch-desc .caption code {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    padding: 0;
+}
+
+
+span.pre::before,
+span.pre::after {
+    content: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+
+
+div.sk-apisearch-desc .caption span.pre {
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
+

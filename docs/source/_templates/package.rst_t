@@ -1,0 +1,69 @@
+{% set fullname = submodules[0].rsplit('.', 1)[0] if submodules else "Unnamed Module" -%}
+.. _{{ fullname }}:
+
+{{ fullname }}
+{{ "=" * fullname|length }}
+
+.. currentmodule:: {{ fullname }}
+
+.. automodule:: {{ fullname }}
+
+{% if submodules -%}
+.. rubric:: Submodules
+
+.. autosummary::
+   :toctree:
+
+   {% for submodule in submodules -%}
+   {{ submodule.rsplit('.', 1)[-1] }}
+   {% endfor -%}
+{% endif %}
+
+{% if classes -%}
+.. rubric:: Classes
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   {% for cls in classes -%}
+   ~{{ cls }}
+   {% endfor -%}
+{% endif %}
+
+{% if functions %}
+.. rubric:: Functions
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   {% for func in functions %}
+   ~{{ func }}
+   {% endfor %}
+{% endif %}
+
+
+{% if subpackages -%}
+
+.. toctree::
+   :maxdepth: 4
+   :hidden:
+
+   {% for subpackage in subpackages -%}
+   {{ subpackage }}
+   {% endfor -%}
+
+{% endif %}
+
+{%- if subpackages %}
+.. rubric:: Sub-packages
+
+.. list-table::
+   :class: autosummary-table
+
+   {% for subpackage in subpackages -%}
+   * - :mod:`{{ subpackage.rsplit('.', 1)[-1] }} <{{ subpackage }}>`
+     -
+   {% endfor %}
+{% endif -%}

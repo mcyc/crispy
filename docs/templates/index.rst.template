@@ -1,0 +1,45 @@
+:html_theme.sidebar_secondary.remove:
+
+.. _api_ref:
+
+=============
+API Reference
+=============
+
+This is **CRISPy**'s class and function reference. In addition to the table below,
+you can also search with the search bar located on the top right corner of the webpage.
+
+.. toctree::
+   :maxdepth: 4
+   :hidden:
+
+   {% for module in API_REFERENCE -%}
+   {% if module.startswith('crispy.')
+         and module.count('.') == 1
+         and '._' not in module -%}
+   {{ module }}
+   {% endif -%}
+   {% endfor %}
+
+.. list-table::
+   :header-rows: 1
+   :class: apisearch-table
+
+   * - Object
+     - Description
+   {% for module, module_info in API_REFERENCE.items() -%}
+   {% for obj in module_info["sections"][0]["autosummary"] -%}
+   {% if module_info["type"].get(obj) in ["class", "function"] -%}
+   * - :obj:`~{{ module }}.{{ obj }}`
+     - .. container:: sk-apisearch-desc
+
+          .. currentmodule:: {{ module }}
+
+          .. autoshortsummary:: {{ module }}.{{ obj }}
+
+          .. container:: caption
+
+             :mod:`{{ module }}`
+   {% endif -%}
+   {% endfor %}
+   {% endfor %}

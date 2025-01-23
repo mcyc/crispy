@@ -1,7 +1,18 @@
 # Configuration file for the Sphinx documentation builder.
 import os
 import sys
-import tomli  # Use tomli for Python < 3.11
+
+try:
+    if sys.version_info < (3, 11):
+        import tomli as tomllib  # Use tomli for Python < 3.11
+        print("Using tomli for Python < 3.11")
+    else:
+        import tomllib  # Use built-in tomllib for Python >= 3.11
+        print("Using built-in tomllib for Python >= 3.11")
+except ImportError:
+    raise ImportError(
+        "The 'tomli' module is required for Python < 3.11. Install it using 'pip install tomli'."
+    )
 
 # -- Path setup ---------------------------------------------------------------
 sys.path.insert(0, os.path.abspath('../..'))
@@ -11,9 +22,19 @@ sys.path.insert(0, os.path.abspath('../sphinxext'))
 # -- Project metadata from pyproject.toml -------------------------------------
 def load_metadata():
     """Load project metadata from pyproject.toml."""
+    # Dynamically import tomli or tomllib
+    if sys.version_info < (3, 11):
+        try:
+            import tomli as tomllib  # Fallback for Python < 3.11
+        except ImportError:
+            raise ImportError("The 'tomli' module is required for Python < 3.11. Install it using 'pip install tomli'.")
+    else:
+        import tomllib  # Use built-in tomllib for Python >= 3.11
+
+    # Path to pyproject.toml
     pyproject_path = os.path.join(os.path.dirname(__file__), '../../pyproject.toml')
     with open(pyproject_path, 'rb') as f:
-        data = tomli.load(f)
+        data = tomllib.load(f)  # Use the dynamically imported module
 
     if 'project' not in data:
         raise KeyError("The [project] section is missing in pyproject.toml.")
@@ -23,6 +44,7 @@ def load_metadata():
     urls = metadata.get('urls', {})
     metadata['repository'] = urls.get('Source', None)  # Use 'Source' URL for the repository
     return metadata
+
 
 # Load metadata
 metadata = load_metadata()

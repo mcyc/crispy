@@ -7,8 +7,7 @@ from datetime import timedelta
 from skimage.morphology import skeletonize, label, remove_small_objects
 from importlib import reload
 
-from . import pruning
-from .fil_finder import length as ff_length
+from . import pruning, filfinder_length as ff_length
 
 reload(pruning)
 reload(ff_length)

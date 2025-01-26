@@ -10,7 +10,7 @@ import string
 from importlib import reload
 
 from .fil_finder import utilities as ff_util
-from .fil_finder import length as ff_length
+from . import filfinder_length as ff_length
 
 reload(ff_util)
 reload(ff_length)

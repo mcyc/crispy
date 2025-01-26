@@ -5,7 +5,7 @@ Taken from FilFinder (v1.7.2)
 Author: Eric Koch
 '''
 
-from .length import *
+from crispy.pruning.filfinder_length import *
 from .utilities import distance
 
 import numpy as np

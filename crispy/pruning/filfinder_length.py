@@ -4,8 +4,8 @@ Taken from FilFinder (v1.7.2)
 Author: Eric Koch
 '''
 
-from .utilities import *
-from .pixel_ident import *
+from crispy.pruning.fil_finder.utilities import *
+from crispy.pruning.fil_finder.pixel_ident import *
 
 import numpy as np
 import scipy.ndimage as nd

@@ -1003,7 +1003,7 @@ def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths, i
                                    [1] * k))[-1][0] != label:
                         k += 1
                     intersec_pts.extend(inters[k - 1])
-                    skeleton[list(zip(*inters[k - 1]))] = 2
+                    skeleton[tuple(zip(*inters[k - 1]))] = 2
             # Remove unnecessary pixels
 
             count = 0

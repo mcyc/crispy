@@ -6,7 +6,7 @@ Author: Eric Koch
 '''
 
 from crispy.pruning.filfinder_length import *
-from .utilities import distance
+from crispy.pruning._filfinder_utilities import distance
 
 import numpy as np
 import scipy.ndimage as nd

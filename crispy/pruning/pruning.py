@@ -9,8 +9,7 @@ import copy
 import string
 from importlib import reload
 
-from .fil_finder import utilities as ff_util
-from . import filfinder_length as ff_length
+from . import filfinder_length as ff_length, _filfinder_utilities as ff_util
 
 reload(ff_util)
 reload(ff_length)
@@ -954,7 +953,7 @@ def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths, i
     """
     def eight_con():
         '''
-        3D version of eight_con() from fil_finder/utilities.py
+        3D version of eight_con() from fil_finder/_filfinder_utilities.py
         '''
         return np.ones((3, 3, 3))
 

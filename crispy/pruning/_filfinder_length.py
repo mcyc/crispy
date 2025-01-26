@@ -4,8 +4,8 @@ Mostly borrowed from FilFinder (v1.7.2)
 Author: Eric Koch
 '''
 
-from _filfinder_pixel_ident import *
-from _filfinder_utilities import eight_con, product_gen
+from ._filfinder_pixel_ident import *
+from ._filfinder_utilities import eight_con, product_gen
 
 import numpy as np
 import scipy.ndimage as nd

@@ -5,8 +5,8 @@ Taken from FilFinder (v1.7.2)
 Author: Eric Koch
 '''
 
-from crispy.pruning._filfinder_length import *
-from crispy.pruning._filfinder_utilities import distance
+from _filfinder_length import *
+from _filfinder_utilities import distance, shifter
 
 import numpy as np
 import scipy.ndimage as nd
@@ -368,6 +368,10 @@ def find_filpix(branches, labelfil, final=True, debug=False):
     return fila_pts, inters, labelfil, endpts_return
 
 
+def raw_input(param):
+    pass
+
+
 def find_extran(branches, labelfil, debug=False):
     '''
     Identify pixels that are not necessary to keep the connectivity of the
@@ -683,10 +687,7 @@ def make_final_skeletons(labelisofil, inters, verbose=False, save_png=False,
                 p.close()
             if verbose:
                 p.show()
-            if in_ipynb():
-                p.clf()
 
-    return filament_arrays
 
 
 def recombine_skeletons(skeletons, offsets, orig_size, pad_size):

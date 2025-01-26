@@ -68,7 +68,7 @@ def red_chisq(data, fit, nparam, sd):
         stat = stat.value
     return stat
 
-
+'''
 def in_ipynb():
     try:
         cfg = get_ipython().config
@@ -78,6 +78,7 @@ def in_ipynb():
             return False
     except NameError:
         return False
+'''
 
 
 def round_to_odd(x):

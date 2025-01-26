@@ -5,7 +5,7 @@ Taken from FilFinder (v1.7.2)
 Author: Eric Koch
 '''
 
-from ._filfinder_length import *
+from structures import eight_con
 from ._filfinder_utilities import distance, shifter
 
 import numpy as np

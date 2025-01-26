@@ -4,8 +4,11 @@ Mostly borrowed from FilFinder (v1.7.2)
 Author: Eric Koch
 '''
 
-from ._filfinder_pixel_ident import *
-from ._filfinder_utilities import eight_con, product_gen
+#from ._filfinder_pixel_ident import *
+from ._filfinder_pixel_ident import merge_nodes
+from ._filfinder_utilities import product_gen
+
+from .structures import eight_con, struct1, struct2, check1, check2, check3
 
 import numpy as np
 import scipy.ndimage as nd
@@ -13,26 +16,6 @@ import networkx as nx
 import operator
 import string
 import copy
-
-# Create 4 to 8-connected elements to use with binary hit-or-miss
-struct1 = np.array([[1, 0, 0],
-                    [0, 1, 1],
-                    [0, 0, 0]])
-
-struct2 = np.array([[0, 0, 1],
-                    [1, 1, 0],
-                    [0, 0, 0]])
-
-# Next check the three elements which will be double counted
-check1 = np.array([[1, 1, 0, 0],
-                   [0, 0, 1, 1]])
-
-check2 = np.array([[0, 0, 1, 1],
-                   [1, 1, 0, 0]])
-
-check3 = np.array([[1, 1, 0],
-                   [0, 0, 1],
-                   [0, 0, 1]])
 
 
 def skeleton_length(skeleton):

@@ -20,10 +20,6 @@ def find_nearest(array, value):
 ##########################################################################
 
 
-def eight_con():
-    return np.ones((3, 3))
-
-
 def distance(x, x1, y, y1):
     return np.sqrt((x - x1) ** 2.0 + (y - y1) ** 2.0)
 

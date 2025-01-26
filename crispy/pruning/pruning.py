@@ -7,12 +7,8 @@ from astropy.io import fits
 from astropy.utils.console import ProgressBar
 import copy
 import string
-from importlib import reload
-
-from . import _filfinder_length as ff_length, _filfinder_utilities as ff_util
-
-reload(ff_util)
-reload(ff_length)
+from ._filfinder_length import product_gen #init_lengths,
+from ._filfinder_length import init_lengths as init_lengths_2D
 
 ########################################################################################################################
 
@@ -275,7 +271,7 @@ def walk_through_segment_2D(segment):
     return idx_list
 
 
-def init_lengths(labelisofil, array_offsets=None, img=None, use_skylength=True):
+def init_lengths_3D(labelisofil, array_offsets=None, img=None, use_skylength=True):
     """
     Compute lengths and intensities for branches in 3D skeletons.
 
@@ -408,9 +404,9 @@ def init_branch_properties(labelisofil, ndim, img=None, use_skylength=True):
         array_offsets = np.ones((num, 1, 2), dtype=int)
         if img is None:
             img = np.ones(labelisofil[0].shape)
-        return ff_length.init_lengths(labelisofil, array_offsets, img=img)
+        return init_lengths_2D(labelisofil, array_offsets, img=img)
     else:
-        return init_lengths(labelisofil, img=img, use_skylength=use_skylength)
+        return init_lengths_3D(labelisofil, img=img, use_skylength=use_skylength)
 
 
 def segment_len(wlk_idx, remove_axis=None):
@@ -718,9 +714,9 @@ def pre_graph_3D(labelisofil, branch_properties, interpts, ends, w=0.0):
             inter_nodes_temp.append(uniqs)
 
         # Add the intersection labels. Also append those to nodes
-        inter_nodes.append(list(zip(ff_util.product_gen(string.ascii_uppercase),
+        inter_nodes.append(list(zip(product_gen(string.ascii_uppercase),
                                     inter_nodes_temp)))
-        for alpha, node in zip(ff_util.product_gen(string.ascii_uppercase),
+        for alpha, node in zip(product_gen(string.ascii_uppercase),
                                inter_nodes_temp):
             nodes[n].append(alpha)
         # Edges are created from the information contained in the nodes.
@@ -839,9 +835,9 @@ def pre_graph_3D_old(labelisofil, branch_properties, interpts, ends, w=0.5):
             inter_nodes_temp.append(uniqs)
 
         # Add the intersection labels. Also append those to nodes
-        inter_nodes.append(list(zip(ff_util.product_gen(string.ascii_uppercase),
+        inter_nodes.append(list(zip(product_gen(string.ascii_uppercase),
                                     inter_nodes_temp)))
-        for alpha, node in zip(ff_util.product_gen(string.ascii_uppercase),
+        for alpha, node in zip(product_gen(string.ascii_uppercase),
                                inter_nodes_temp):
             nodes[n].append(alpha)
         # Edges are created from the information contained in the nodes.
@@ -998,7 +994,7 @@ def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths, i
                     pass
                 if not isinstance(label, int):
                     k = 1
-                    while list(zip(ff_util.product_gen(string.ascii_uppercase),
+                    while list(zip(product_gen(string.ascii_uppercase),
                                    [1] * k))[-1][0] != label:
                         k += 1
                     intersec_pts.extend(inters[k - 1])

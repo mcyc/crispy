@@ -3,11 +3,6 @@
 Mostly borrowed from FilFinder (v1.7.2)
 Author: Eric Koch
 '''
-
-#from ._filfinder_pixel_ident import *
-from ._filfinder_pixel_ident import merge_nodes
-from ._filfinder_utilities import product_gen
-
 from .structures import eight_con, struct1, struct2, check1, check2, check3
 
 import numpy as np
@@ -16,7 +11,7 @@ import networkx as nx
 import operator
 import string
 import copy
-
+import itertools
 
 def skeleton_length(skeleton):
     '''
@@ -775,3 +770,40 @@ def main_length(max_path, edge_list, labelisofil, interpts, branch_lengths,
                 p.clf()
 
     return main_lengths, longpath_arrays
+
+
+# ============================================================================
+
+def product_gen(n):
+    """
+    Utility function
+
+    Author: Eric Koch (from FilFinder v1.7.2)
+    """
+    for r in itertools.count(1):
+        for i in itertools.product(n, repeat=r):
+            yield "".join(i)
+
+# ============================================================================
+
+def merge_nodes(node, G):
+    '''
+    Combine a node into its neighbors.
+
+    Author: Eric Koch (from FilFinder v1.7.2)
+    '''
+
+    neigb = list(G[node])
+
+    if len(neigb) != 2:
+        return G
+
+    new_weight = G[node][neigb[0]]['weight'] + \
+        G[node][neigb[1]]['weight']
+
+    G.remove_node(node)
+    G.add_edge(neigb[0], neigb[1], weight=new_weight)
+
+    return G
+
+# ============================================================================

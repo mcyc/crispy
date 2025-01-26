@@ -5,7 +5,6 @@ from astropy.io import fits
 import time
 from datetime import timedelta
 from skimage.morphology import skeletonize, label, remove_small_objects
-from importlib import reload
 
 from . import pruning
 from . import _filfinder_length as ff_length
@@ -36,12 +35,7 @@ class Skeleton(object):
         # skeletonize and removing object that's less than 1 pixel in size to ensuer it's compitable with pruning
 
         self.ndim = skeleton_raw.ndim
-
-        if self.ndim ==2:
-            self.skeleton_raw = skeletonize(skeleton_raw).astype(bool)
-        else:
-            self.skeleton_raw = skeletonize(skeleton_raw).astype(bool)
-
+        self.skeleton_raw = skeletonize(skeleton_raw, method='lee').astype(bool)
         self.skeleton_raw = remove_small_objects(self.skeleton_raw, min_size=min_size, connectivity=self.ndim)
         self.skeleton_full = self.skeleton_raw.copy()
         self.header = header

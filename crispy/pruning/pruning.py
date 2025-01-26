@@ -7,7 +7,7 @@ from astropy.io import fits
 from astropy.utils.console import ProgressBar
 import copy
 import string
-from ._filfinder_length import product_gen #init_lengths,
+from ._filfinder_length import product_gen
 from ._filfinder_length import init_lengths as init_lengths_2D
 
 ########################################################################################################################
@@ -100,7 +100,6 @@ def endPoints(skel):
 
     # iterate over all permutation of endpoints
     # Note: this does not account for "end points" that are only a pixel long
-    i = 0
     for index, value in np.ndenumerate(base_block):
         if index != cent_idx:
             str_block = base_block.copy()
@@ -557,7 +556,7 @@ def remove_bad_ppv_branches(labBodyPtAry, num_lab, refStructure=None, max_pp_len
             # pad the edges to so it's compatiable with walk_through_segment_3D (i.e., skeleton does not touch the edge)
             branch = np.pad(branch, 1, mode='constant', constant_values=0)
 
-            print(len(branch == 1))
+            #print(len(branch == 1))
             if len(branch == 1) > 1:
                 wlk_idx = walk_through_segment_3D(branch)
                 skylength = segment_len(wlk_idx, remove_axis=0)
@@ -783,12 +782,12 @@ def pre_graph_3D_old(labelisofil, branch_properties, interpts, ends, w=0.5):
     loop_edges = []
 
     def path_weighting(idx, length, intensity, w=0.5):
-        print(("intensity weighting fraction: {0}".format(w)))
+        #print(("intensity weighting fraction: {0}".format(w)))
         '''
         Relative weighting for the shortest path algorithm using the branch
         lengths and the average intensity along the branch.
         '''
-        print(("index is: {0}".format(idx)))
+        #print(("index is: {0}".format(idx)))
         if w > 1.0 or w < 0.0:
             raise ValueError(
                 "Relative weighting w must be between 0.0 and 1.0.")
@@ -998,7 +997,7 @@ def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths, i
                                    [1] * k))[-1][0] != label:
                         k += 1
                     intersec_pts.extend(inters[k - 1])
-                    skeleton[list(zip(*inters[k - 1]))] = 2
+                    skeleton[tuple(zip(*inters[k - 1]))] = 2
             # Remove unnecessary pixels
 
             count = 0

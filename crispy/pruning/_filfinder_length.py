@@ -3,7 +3,6 @@
 Mostly borrowed from FilFinder (v1.7.2)
 Author: Eric Koch
 '''
-from .structures import eight_con, struct1, struct2, check1, check2, check3
 
 import numpy as np
 import scipy.ndimage as nd
@@ -12,6 +11,8 @@ import operator
 import string
 import copy
 import itertools
+
+from .structures import eight_con, struct1, struct2, check1, check2, check3
 
 def skeleton_length(skeleton):
     '''

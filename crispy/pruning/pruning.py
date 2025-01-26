@@ -9,7 +9,7 @@ import copy
 import string
 from importlib import reload
 
-from . import filfinder_length as ff_length, _filfinder_utilities as ff_util
+from . import _filfinder_length as ff_length, _filfinder_utilities as ff_util
 
 reload(ff_util)
 reload(ff_length)

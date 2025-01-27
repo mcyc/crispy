@@ -704,10 +704,6 @@ def euclidean_dist(X, G):
     -----
     - This function is useful for calculating distances and displacements required
       in SCMS-based ridge detection.
-    - The Euclidean distance is computed as:
-
-      .. math::
-         \text{distance} = \sqrt{\sum_{d=1}^D (G_{ij} - X_{ik})^2}
 
     Examples
     --------

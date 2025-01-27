@@ -3,7 +3,6 @@ __author__ = 'mcychen'
 from scipy import ndimage
 from skimage import morphology
 import numpy as np
-from astropy.io import fits
 from astropy.utils.console import ProgressBar
 import copy
 import string
@@ -192,84 +191,6 @@ def walk_through_segment_3D(segment):
     return idx_list
 
 
-def walk_through_segment_2D(segment):
-    """
-    Traverse a 2D skeleton segment to obtain an ordered list of pixel coordinates.
-
-    This function processes a skeleton segment that does not contain branches or intersections
-    and returns an ordered list of pixel coordinates. The traversal starts from the endpoint
-    closest to the origin.
-
-    Parameters
-    ----------
-    segment : ndarray
-        A binary 2D array representing the skeleton segment. Non-zero values indicate
-        skeleton pixels, and zero values represent the background.
-
-    Returns
-    -------
-    idx_list : list of tuple
-        A list of 2D coordinate tuples ordered by their position along the segment.
-        The traversal begins from the endpoint nearest to the origin.
-
-    Notes
-    -----
-    - This function assumes that the segment has exactly two endpoints and does not touch the
-      edges of the array.
-    - The traversal may fail if the segment width exceeds one pixel at any point due to
-      imperfect skeletonization.
-    - Endpoints are detected using the `endPoints` function.
-
-    Raises
-    ------
-    ValueError
-        If the segment has less than two pixels or more than one pixel-wide connectivity.
-    """
-    # note: this only works if the endpoints does not touch the edge
-
-    segment = copy.copy(segment)
-
-    # in case the segment contains less than 2 pixels
-    num_pix = len(segment[segment >= 1])
-    if num_pix < 1:
-        print("[ERROR]: the total number of pixels in the segment is less than 1!")
-        return None
-    if num_pix == 1:
-        z, y, x = np.argwhere(segment >= 1)[0]
-        return [(z, y, x)]
-
-    # find indicies of the endpoints
-    ept = endPoints(segment)
-    ept_idx = np.argwhere(ept)
-
-    # find the endpoint that is closest to the origin
-    if np.sum(ept_idx[0] ** 2) < np.sum(ept_idx[1] ** 2):
-        idx = ept_idx[0]
-    else:
-        idx = ept_idx[1]
-
-    z, y, x = idx
-    idx_list = [(z, y, x)]
-
-    block = segment[z - 1:z + 2, y - 1:y + 2, x - 1:x + 2]
-    block[1, 1, 1] = 0
-
-    # "walk through" the pixels in the segment
-    while len(block[block > 0]) == 1:
-        k, j, i = np.argwhere(block > 0)[0]
-        z, y, x = z + k - 1, y + j - 1, x + i - 1
-        idx_list.append((z, y, x))
-        block = segment[z - 1:z + 2, y - 1:y + 2, x - 1:x + 2]
-        block[1, 1, 1] = 0
-
-    # in case the walk was terminated due to imperfect skeletonization
-    if len(block[block > 0]) > 1:
-        print("[ERROR]: the skeleton segment is more than a pixel wide by 3-connectivity")
-        return None
-
-    return idx_list
-
-
 def init_lengths_3D(labelisofil, array_offsets=None, img=None, use_skylength=True):
     """
     Compute lengths and intensities for branches in 3D skeletons.
@@ -336,8 +257,6 @@ def init_lengths_3D(labelisofil, array_offsets=None, img=None, use_skylength=Tru
     all_branch_pts = []
 
     for n in range(num):
-        # print("...calculating length for segment {0}/{1}...".format(n + 1, num))
-
         leng = []
         av_intensity = []
         branch_pix = []
@@ -446,39 +365,6 @@ def segment_len(wlk_idx, remove_axis=None):
     return dst
 
 
-def coord_list(skel_list):
-    """
-    Extract coordinates of non-zero pixels from a list of skeleton arrays.
-
-    This function processes a list of binary skeleton arrays and returns the
-    coordinates of all non-zero pixels (i.e., skeleton points) as tuples.
-
-    Parameters
-    ----------
-    skel_list : list of ndarray
-        A list of binary arrays representing skeletons. Non-zero values indicate
-        skeleton points, and zero values represent the background.
-
-    Returns
-    -------
-    crd_list : list of list of tuple
-        A nested list where each element is a list of tuples. Each tuple contains
-        the coordinates of a skeleton point for a given array in `skel_list`.
-
-    Notes
-    -----
-    - The output preserves the order of the input list, with each skeleton's
-      coordinates grouped separately.
-    - This function is useful for extracting and processing skeleton pixel coordinates.
-
-    """
-    crd_list = []
-    for skel in skel_list:
-        crd = np.argwhere(skel != 0)
-        crd = list(map(tuple, crd))
-        crd_list.append(crd)
-    return crd_list
-
 
 def remove_bad_ppv_branches(labBodyPtAry, num_lab, refStructure=None, max_pp_length=9.0, v2pp_ratio=1.5, method="full"):
     """
@@ -556,7 +442,6 @@ def remove_bad_ppv_branches(labBodyPtAry, num_lab, refStructure=None, max_pp_len
             # pad the edges to so it's compatiable with walk_through_segment_3D (i.e., skeleton does not touch the edge)
             branch = np.pad(branch, 1, mode='constant', constant_values=0)
 
-            #print(len(branch == 1))
             if len(branch == 1) > 1:
                 wlk_idx = walk_through_segment_3D(branch)
                 skylength = segment_len(wlk_idx, remove_axis=0)
@@ -566,7 +451,6 @@ def remove_bad_ppv_branches(labBodyPtAry, num_lab, refStructure=None, max_pp_len
                 if skylength <= max_pp_length:
                     ratio = vlength / skylength
                     if ratio >= v2pp_ratio:
-                        #print(("v size: {0}, pp size: {1}, ratio: {2}".format(vlength, skylength, ratio)))
                         refStructure[labBodyPtAry == i + 1] = 0
 
     elif method == "quick":
@@ -582,7 +466,6 @@ def remove_bad_ppv_branches(labBodyPtAry, num_lab, refStructure=None, max_pp_len
                 # remove branches that have high velocity-to-length ratio
                 ratio = 1.0 * v_length / size_pp
                 if ratio >= v2pp_ratio:
-                    #print(("v size: {0}, pp size: {1}, ratio: {2}".format(v_length, size_pp, ratio)))
                     refStructure[branch] = 0
     else:
         print(("[ERROR]: the entered method {0} is not recongnized.".format(method)))
@@ -657,11 +540,11 @@ def pre_graph_3D(labelisofil, branch_properties, interpts, ends, w=0.0):
     loop_edges = []
 
     def path_weighting(idx, length, intensity, w=0.5):
-        '''
+        """
         Relative weighting for the shortest path algorithm using the branch lengths and the average intensity
         along the branch.
         MC note: this weighting scheme may be potentially flawed
-        '''
+        """
         if w > 1.0 or w < 0.0:
             raise ValueError(
                 "Relative weighting w must be between 0.0 and 1.0.")
@@ -688,8 +571,6 @@ def pre_graph_3D(labelisofil, branch_properties, interpts, ends, w=0.0):
         # They are labeled alphabetically (if len(interpts[n])>26, subsequent labels are AA,AB,...).
         # The branch labels attached to each intersection are included for future use.
         for intersec in interpts[n]:
-            # print(intersec)
-            # print("branch point size: {0}".format(len(intersec[intersec!=0])))
             uniqs = []
             for i in intersec:  # Intersections can contain multiple pixels
 
@@ -762,132 +643,6 @@ def pre_graph_3D(labelisofil, branch_properties, interpts, ends, w=0.0):
         loop_edges.append(loops_temp)
 
     return edge_list, nodes, loop_edges
-
-
-def pre_graph_3D_old(labelisofil, branch_properties, interpts, ends, w=0.5):
-    """
-    The 3D version of Eric Koch's pre_graph function in FilFinder
-    This function converts the skeletons into a graph object compatible with
-    networkx. The graphs have nodes corresponding to end and
-    intersection points and edges defining the connectivity as the branches
-    with the weights set to the branch length.
-    """
-
-    num = len(labelisofil)
-
-    end_nodes = []
-    inter_nodes = []
-    nodes = []
-    edge_list = []
-    loop_edges = []
-
-    def path_weighting(idx, length, intensity, w=0.5):
-        #print(("intensity weighting fraction: {0}".format(w)))
-        '''
-        Relative weighting for the shortest path algorithm using the branch
-        lengths and the average intensity along the branch.
-        '''
-        #print(("index is: {0}".format(idx)))
-        if w > 1.0 or w < 0.0:
-            raise ValueError(
-                "Relative weighting w must be between 0.0 and 1.0.")
-        return (1 - w) * (length[idx] / np.sum(length)) + \
-            w * (intensity[idx] / np.sum(intensity))
-
-    lengths = branch_properties["length"]
-    branch_intensity = branch_properties["intensity"]
-
-    for n in range(num):
-        inter_nodes_temp = []
-        # Create end_nodes, which contains lengths, and nodes, which we will later add in the intersections
-        end_nodes.append([(labelisofil[n][i],
-                           path_weighting(int(labelisofil[n][i] - 1),
-                                          lengths[n],
-                                          branch_intensity[n],
-                                          w),
-                           lengths[n][int(labelisofil[n][i] - 1)],
-                           branch_intensity[n][int(labelisofil[n][i] - 1)])
-                          for i in ends[n]])
-        nodes.append([labelisofil[n][i] for i in ends[n]])
-
-        # Intersection nodes are given by the intersections points of the filament.
-        # They are labeled alphabetically (if len(interpts[n])>26, subsequent labels are AA,AB,...).
-        # The branch labels attached to each intersection are included for future use.
-        for intersec in interpts[n]:
-            uniqs = []
-            for i in intersec:  # Intersections can contain multiple pixels
-
-                z, y, x = i
-                int_arr = labelisofil[n][z - 1:z + 2, y - 1:y + 2, x - 1:x + 2]
-                int_arr[1, 1, 1] = 0
-
-                for x in np.unique(int_arr[np.nonzero(int_arr)]):
-                    uniqs.append((x,
-                                  path_weighting(x - 1, lengths[n],
-                                                 branch_intensity[n],
-                                                 w),
-                                  lengths[n][x - 1],
-                                  branch_intensity[n][x - 1]))
-            # Intersections with multiple pixels can give the same branches.
-            # Get rid of duplicates
-            uniqs = list(set(uniqs))
-            inter_nodes_temp.append(uniqs)
-
-        # Add the intersection labels. Also append those to nodes
-        inter_nodes.append(list(zip(product_gen(string.ascii_uppercase),
-                                    inter_nodes_temp)))
-        for alpha, node in zip(product_gen(string.ascii_uppercase),
-                               inter_nodes_temp):
-            nodes[n].append(alpha)
-        # Edges are created from the information contained in the nodes.
-        edge_list_temp = []
-        loops_temp = []
-        for i, inters in enumerate(inter_nodes[n]):
-            end_match = list(set(inters[1]) & set(end_nodes[n]))
-            for k in end_match:
-                edge_list_temp.append((inters[0], k[0], k))
-
-            for j, inters_2 in enumerate(inter_nodes[n]):
-                if i != j:
-                    match = list(set(inters[1]) & set(inters_2[1]))
-                    new_edge = None
-                    if len(match) == 1:
-                        new_edge = (inters[0], inters_2[0], match[0])
-                    elif len(match) > 1:
-                        multi = [match[l][1] for l in range(len(match))]
-                        keep = multi.index(min(multi))
-                        new_edge = (inters[0], inters_2[0], match[keep])
-
-                        # Keep the other edges information in another list (for loops)
-                        for jj in range(len(multi)):
-                            if jj == keep:
-                                continue
-                            loop_edge = (inters[0], inters_2[0], match[jj])
-                            dup_check = loop_edge not in loops_temp and \
-                                        (loop_edge[1], loop_edge[0], loop_edge[2]) \
-                                        not in loops_temp
-                            if dup_check:
-                                loops_temp.append(loop_edge)
-
-                    if new_edge is not None:
-                        if not (new_edge[1], new_edge[0], new_edge[2]) in edge_list_temp \
-                                and new_edge not in edge_list_temp:
-                            edge_list_temp.append(new_edge)
-
-        # Remove duplicated edges between intersections
-
-        edge_list.append(edge_list_temp)
-        loop_edges.append(loops_temp)
-
-    return edge_list, nodes, loop_edges
-
-
-def get_furthest_nodes(ends, return_dist=False):
-    '''
-    Take a list of end pixels for each skeleton, and return a list of coordinates of endpoints that are furtherest from
-    <Note implemented>
-    '''
-    return None
 
 
 def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths, img_scale, verbose=False, save_png=False, save_name=None):
@@ -969,8 +724,6 @@ def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths, i
             main_lengths.append(lengths[0] * img_scale)
             skeleton = skel_arr  # for viewing purposes when verbose
         else:
-            #print("spine {}".format(num))
-            #print("lengths: {}".format(lengths))
             skeleton = np.zeros(skel_arr.shape)
 
             # Add edges along longest path
@@ -1021,46 +774,8 @@ def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths, i
             main_lengths.append(1.0 * img_scale)
 
         longpath_cube[skeleton.astype(bool)] = True
-        #print('spine {} added'.format(num))
 
     return main_lengths, longpath_cube.astype(int)
-
-
-def save_labskel2fits(labelisofil, outpath, header):
-    """
-    Save labeled skeletons into a single FITS file.
-
-    This function combines a list of labeled skeleton arrays into a single array
-    and saves it as a FITS file, retaining the original header information.
-
-    Parameters
-    ----------
-    labelisofil : list of ndarray
-        List of labeled skeleton arrays. Each array contains skeleton branches labeled
-        with unique integers.
-
-    outpath : str
-        File path to save the output FITS file.
-
-    header : astropy.io.fits.Header
-        FITS header to be included in the output file.
-
-    Returns
-    -------
-    None
-        The function saves the labeled skeletons to a FITS file and does not return anything.
-
-    Notes
-    -----
-    - The labeled skeleton arrays are combined into a single 3D array using a sum
-      operation along the list dimension.
-    - Overlapping skeletons in the combined array may have additive labeling.
-
-    """
-    labelisofil = np.array(labelisofil)
-    data = np.nansum(labelisofil, axis=0)
-
-    fits.writeto(outpath, data, header, overwrite=True)
 
 
 def classify_structure(skeleton):

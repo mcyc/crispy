@@ -270,7 +270,6 @@ def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length=
     print("---gridding {} distinct skeletons---".format(np.max(labels)))
 
     for lb in ProgressBar(range(np.max(labels) + 1)):
-    #for lb in range(np.max(labels) + 1):
         # create a full skeleton
         # loop through all the lables (except for -1, which is label for noise)
         skl = grid_skeleton(coord[labels == lb].T, refdata, coord_in_xfirst=coord_in_xfirst, start_index=start_index)
@@ -380,7 +379,6 @@ def clean_grid_ppv(coord, refdata, coord_in_xfirst=False, start_index=1, min_len
     print("---gridding {} distinct skeletons---".format(np.max(labels)))
 
     for lb in ProgressBar(range(np.max(labels) + 1)):
-    #for lb in range(np.max(labels) + 1):
         # create a full skeleton
         # loop through all the lables (except for -1, which is label for noise)
         skl = grid_skeleton(coord[labels == lb].T, refdata, coord_in_xfirst=coord_in_xfirst, start_index=start_index)
@@ -558,9 +556,6 @@ def make_skeleton(coord, refdata, rm_sml_obj=True, coord_in_xfirst=False, start_
 
     # remove small object shorter than a certain length (this assumes the skeleton is truely 1-pixel in width)
     if rm_sml_obj:
-
-        #min_length = 6 #9 # 3 binwidth
-
         mask = mask.astype('bool')
         # connectivity = 2 to ensure "vortex/diagonal" connection
         mask = morphology.remove_small_objects(mask, min_size=min_length, connectivity=2)
@@ -569,7 +564,6 @@ def make_skeleton(coord, refdata, rm_sml_obj=True, coord_in_xfirst=False, start_
         # Whether to use 4- or 8- "connectivity". In 3D, 4-"connectivity" means connected pixels have to share face,
         # whereas with 8-"connectivity", they have to share only edge or vertex.
         mask, num = morphology.label(mask, neighbors=8, return_num=True)
-        print(num)
 
         # remove filaments that does not meet the aspect ratio criterium in the pp space
         for i in range(1, num+1):
@@ -589,8 +583,6 @@ def make_skeleton(coord, refdata, rm_sml_obj=True, coord_in_xfirst=False, start_
             mask = mask/mask
 
         mask = mask.astype('int')
-
-        print(num)
 
     return mask
 
@@ -726,7 +718,6 @@ def uniq_per_pix(coord, mask, coord_in_xfirst=False, start_index=1):
 
         # get index of the point with the median last-coordinate value within a pixel
         # (e.g., in 3D, index of the point with the median z value)
-        #z_vals = crd_at_pix[:, 2]
         z_vals = crd_at_pix[:, -1]
         med_idx = np.argsort(z_vals)[len(z_vals) // 2]
         coord_uniq.append(crd_at_pix[med_idx])

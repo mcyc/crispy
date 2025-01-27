@@ -1,19 +1,16 @@
 CRISPy Documentation
 ====================
 
-    **CRISPy** (Computational Ridge Identification with SCMS for Python) is a Python library for identify density
-    ridges in multi-dimensional space.
+    **CRISPy** (Computational Ridge Identification with SCMS for Python) is a Python library for identifying density
+    ridges in multidimensional space.
 
 
 Overview
 ---------------------
 
-CRISPy identify density ridges using the Subspace Constrained Mean Shift (SCMS) algorithm based on the
-statistical framework generalized by `Yen-Chi Chen <http://faculty.washington.edu/yenchic/>`_.
-This library adapts and extends the method for Python
-applications, with focus on scientific and astrophysical usage.
-
-CRISPy library's key features include:
+**CRISPy** uses the Subspace Constrained Mean Shift (SCMS) algorithm to identify density ridges
+(e.g., filaments) in multidimensional data, designed with a focus on scientific and astrophysical usage in
+2D and 3D. CRISPy's main features include:
 
 - Efficient implementation of the SCMS algorithm for Python.
 - Tools for gridding, pruning, and refining ridge results.
@@ -35,7 +32,7 @@ and the following for the statistical framework:
 Navigation
 ---------------------
 To get started quickly, please see the :doc:`Install <installation>` and :doc:`Quick Start <quick_start>` pages.
-Use the navigation bar at the top to explore other pages, including,
+There is also a navigation bar at the top for general exploration, including,
 :doc:`Tutorials <tutorials/index>`, :doc:`Guides <guides>`, and :doc:`API Reference <api/index>`.
 
 .. toctree::

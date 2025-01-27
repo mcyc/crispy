@@ -12,9 +12,6 @@ from skimage import morphology
 from os.path import splitext
 
 from . import scms as scms_mul
-from importlib import reload
-reload(scms_mul)
-
 
 ########################################################################################################################
 
@@ -376,3 +373,33 @@ def image2data(image, thres=0.5, ordXYZ=True, walkerThres=None, overmask=None, m
     # get masked image
     weights = image[mask]
     return X, G, weights, D
+
+
+def threshold_local(image, *args, **kwargs):
+    """
+    Apply a local thresholding method to an image for binarization.
+
+    Parameters
+    ----------
+    image : ndarray
+        Input image to be thresholded.
+    *args : tuple
+        Positional arguments passed to the thresholding function.
+    **kwargs : dict
+        Keyword arguments passed to the thresholding function.
+
+    Returns
+    -------
+    mask : ndarray
+        Binary mask of the same shape as `image`, where True values represent
+        pixels above the local threshold.
+    """
+    try:
+        from skimage.filters import threshold_local
+        mask = image > threshold_local(image, *args, **kwargs)
+    except ImportError:
+        # for older versions of
+        from skimage.filters import threshold_adaptive
+        mask = threshold_adaptive(image, *args, **kwargs)
+
+    return mask

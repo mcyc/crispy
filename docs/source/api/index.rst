@@ -25,26 +25,6 @@ you can also search with the search bar located on the top right corner of the w
 
    * - Object
      - Description
-   * - :obj:`~crispy.grid_ridge.bodyPoints`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.grid_ridge
-
-          .. autoshortsummary:: crispy.grid_ridge.bodyPoints
-
-          .. container:: caption
-
-             :mod:`crispy.grid_ridge`
-   * - :obj:`~crispy.grid_ridge.branchedPoints`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.grid_ridge
-
-          .. autoshortsummary:: crispy.grid_ridge.branchedPoints
-
-          .. container:: caption
-
-             :mod:`crispy.grid_ridge`
    * - :obj:`~crispy.grid_ridge.clean_grid`
      - .. container:: sk-apisearch-desc
 
@@ -61,16 +41,6 @@ you can also search with the search bar located on the top right corner of the w
           .. currentmodule:: crispy.grid_ridge
 
           .. autoshortsummary:: crispy.grid_ridge.clean_grid_ppv
-
-          .. container:: caption
-
-             :mod:`crispy.grid_ridge`
-   * - :obj:`~crispy.grid_ridge.endPoints`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.grid_ridge
-
-          .. autoshortsummary:: crispy.grid_ridge.endPoints
 
           .. container:: caption
 
@@ -186,6 +156,16 @@ you can also search with the search bar located on the top right corner of the w
           .. container:: caption
 
              :mod:`crispy.image_ridge_find`
+   * - :obj:`~crispy.image_ridge_find.threshold_local`
+     - .. container:: sk-apisearch-desc
+
+          .. currentmodule:: crispy.image_ridge_find
+
+          .. autoshortsummary:: crispy.image_ridge_find.threshold_local
+
+          .. container:: caption
+
+             :mod:`crispy.image_ridge_find`
    * - :obj:`~crispy.image_ridge_find.write_output`
      - .. container:: sk-apisearch-desc
 
@@ -208,270 +188,6 @@ you can also search with the search bar located on the top right corner of the w
           .. container:: caption
 
              :mod:`crispy.pruning.Skeleton`
-   
-   
-   * - :obj:`~crispy.pruning.fil_finder.length.init_lengths`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.length
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.length.init_lengths
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.length`
-   * - :obj:`~crispy.pruning.fil_finder.length.longest_path`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.length
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.length.longest_path
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.length`
-   * - :obj:`~crispy.pruning.fil_finder.length.main_length`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.length
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.length.main_length
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.length`
-   * - :obj:`~crispy.pruning.fil_finder.length.pre_graph`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.length
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.length.pre_graph
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.length`
-   * - :obj:`~crispy.pruning.fil_finder.length.prune_graph`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.length
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.length.prune_graph
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.length`
-   * - :obj:`~crispy.pruning.fil_finder.length.skeleton_length`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.length
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.length.skeleton_length
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.length`
-   
-   * - :obj:`~crispy.pruning.fil_finder.pixel_ident.extremum_pts`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.pixel_ident
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.pixel_ident.extremum_pts
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.pixel_ident`
-   * - :obj:`~crispy.pruning.fil_finder.pixel_ident.find_extran`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.pixel_ident
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.pixel_ident.find_extran
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.pixel_ident`
-   * - :obj:`~crispy.pruning.fil_finder.pixel_ident.find_filpix`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.pixel_ident
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.pixel_ident.find_filpix
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.pixel_ident`
-   * - :obj:`~crispy.pruning.fil_finder.pixel_ident.is_blockpoint`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.pixel_ident
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.pixel_ident.is_blockpoint
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.pixel_ident`
-   * - :obj:`~crispy.pruning.fil_finder.pixel_ident.is_tpoint`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.pixel_ident
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.pixel_ident.is_tpoint
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.pixel_ident`
-   * - :obj:`~crispy.pruning.fil_finder.pixel_ident.isolateregions`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.pixel_ident
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.pixel_ident.isolateregions
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.pixel_ident`
-   * - :obj:`~crispy.pruning.fil_finder.pixel_ident.make_final_skeletons`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.pixel_ident
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.pixel_ident.make_final_skeletons
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.pixel_ident`
-   * - :obj:`~crispy.pruning.fil_finder.pixel_ident.merge_nodes`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.pixel_ident
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.pixel_ident.merge_nodes
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.pixel_ident`
-   * - :obj:`~crispy.pruning.fil_finder.pixel_ident.pix_identify`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.pixel_ident
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.pixel_ident.pix_identify
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.pixel_ident`
-   * - :obj:`~crispy.pruning.fil_finder.pixel_ident.recombine_skeletons`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.pixel_ident
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.pixel_ident.recombine_skeletons
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.pixel_ident`
-   
-   * - :obj:`~crispy.pruning.fil_finder.utilities.distance`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.utilities
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.utilities.distance
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.utilities`
-   * - :obj:`~crispy.pruning.fil_finder.utilities.eight_con`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.utilities
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.utilities.eight_con
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.utilities`
-   * - :obj:`~crispy.pruning.fil_finder.utilities.find_nearest`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.utilities
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.utilities.find_nearest
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.utilities`
-   * - :obj:`~crispy.pruning.fil_finder.utilities.in_ipynb`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.utilities
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.utilities.in_ipynb
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.utilities`
-   * - :obj:`~crispy.pruning.fil_finder.utilities.pad_image`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.utilities
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.utilities.pad_image
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.utilities`
-   * - :obj:`~crispy.pruning.fil_finder.utilities.product_gen`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.utilities
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.utilities.product_gen
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.utilities`
-   * - :obj:`~crispy.pruning.fil_finder.utilities.red_chisq`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.utilities
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.utilities.red_chisq
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.utilities`
-   * - :obj:`~crispy.pruning.fil_finder.utilities.round_to_odd`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.utilities
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.utilities.round_to_odd
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.utilities`
-   * - :obj:`~crispy.pruning.fil_finder.utilities.shifter`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.utilities
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.utilities.shifter
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.utilities`
-   * - :obj:`~crispy.pruning.fil_finder.utilities.threshold_local`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.fil_finder.utilities
-
-          .. autoshortsummary:: crispy.pruning.fil_finder.utilities.threshold_local
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.fil_finder.utilities`
    
    * - :obj:`~crispy.pruning.pruning.bodyPoints`
      - .. container:: sk-apisearch-desc
@@ -503,32 +219,12 @@ you can also search with the search bar located on the top right corner of the w
           .. container:: caption
 
              :mod:`crispy.pruning.pruning`
-   * - :obj:`~crispy.pruning.pruning.coord_list`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.pruning
-
-          .. autoshortsummary:: crispy.pruning.pruning.coord_list
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.pruning`
    * - :obj:`~crispy.pruning.pruning.endPoints`
      - .. container:: sk-apisearch-desc
 
           .. currentmodule:: crispy.pruning.pruning
 
           .. autoshortsummary:: crispy.pruning.pruning.endPoints
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.pruning`
-   * - :obj:`~crispy.pruning.pruning.get_furthest_nodes`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.pruning
-
-          .. autoshortsummary:: crispy.pruning.pruning.get_furthest_nodes
 
           .. container:: caption
 
@@ -543,12 +239,12 @@ you can also search with the search bar located on the top right corner of the w
           .. container:: caption
 
              :mod:`crispy.pruning.pruning`
-   * - :obj:`~crispy.pruning.pruning.init_lengths`
+   * - :obj:`~crispy.pruning.pruning.init_lengths_3D`
      - .. container:: sk-apisearch-desc
 
           .. currentmodule:: crispy.pruning.pruning
 
-          .. autoshortsummary:: crispy.pruning.pruning.init_lengths
+          .. autoshortsummary:: crispy.pruning.pruning.init_lengths_3D
 
           .. container:: caption
 
@@ -573,32 +269,12 @@ you can also search with the search bar located on the top right corner of the w
           .. container:: caption
 
              :mod:`crispy.pruning.pruning`
-   * - :obj:`~crispy.pruning.pruning.pre_graph_3D_old`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.pruning
-
-          .. autoshortsummary:: crispy.pruning.pruning.pre_graph_3D_old
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.pruning`
    * - :obj:`~crispy.pruning.pruning.remove_bad_ppv_branches`
      - .. container:: sk-apisearch-desc
 
           .. currentmodule:: crispy.pruning.pruning
 
           .. autoshortsummary:: crispy.pruning.pruning.remove_bad_ppv_branches
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.pruning`
-   * - :obj:`~crispy.pruning.pruning.save_labskel2fits`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.pruning
-
-          .. autoshortsummary:: crispy.pruning.pruning.save_labskel2fits
 
           .. container:: caption
 
@@ -613,16 +289,6 @@ you can also search with the search bar located on the top right corner of the w
           .. container:: caption
 
              :mod:`crispy.pruning.pruning`
-   * - :obj:`~crispy.pruning.pruning.walk_through_segment_2D`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.pruning
-
-          .. autoshortsummary:: crispy.pruning.pruning.walk_through_segment_2D
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.pruning`
    * - :obj:`~crispy.pruning.pruning.walk_through_segment_3D`
      - .. container:: sk-apisearch-desc
 
@@ -633,6 +299,27 @@ you can also search with the search bar located on the top right corner of the w
           .. container:: caption
 
              :mod:`crispy.pruning.pruning`
+   
+   * - :obj:`~crispy.pruning.structures.get_base_block`
+     - .. container:: sk-apisearch-desc
+
+          .. currentmodule:: crispy.pruning.structures
+
+          .. autoshortsummary:: crispy.pruning.structures.get_base_block
+
+          .. container:: caption
+
+             :mod:`crispy.pruning.structures`
+   * - :obj:`~crispy.pruning.structures.get_footprints`
+     - .. container:: sk-apisearch-desc
+
+          .. currentmodule:: crispy.pruning.structures
+
+          .. autoshortsummary:: crispy.pruning.structures.get_footprints
+
+          .. container:: caption
+
+             :mod:`crispy.pruning.structures`
    
    * - :obj:`~crispy.scms.chunk_data`
      - .. container:: sk-apisearch-desc

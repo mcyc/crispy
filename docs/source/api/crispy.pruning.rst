@@ -14,6 +14,7 @@ crispy.pruning
 
    Skeleton
    pruning
+   structures
    
 
 
@@ -21,17 +22,3 @@ crispy.pruning
 
 
 
-.. toctree::
-   :maxdepth: 4
-   :hidden:
-
-   crispy.pruning.fil_finder
-   
-.. rubric:: Sub-packages
-
-.. list-table::
-   :class: autosummary-table
-
-   * - :mod:`fil_finder <crispy.pruning.fil_finder>`
-     -
-   

@@ -22,19 +22,20 @@ To detect density ridges in a `.fits` image :
     from crispy import image_ridge_find as irf
 
     # Set up the data and input parameters
-    filename = "input_image.fits"   # Input .fits image file
+    image_file = "input_image.fits" # Input .fits image file
     thres = 0.5                     # Minimum density threshold for valid data points
     h = 2                           # Smoothing bandwidth (recommended: Nyquist-sampled resolution)
 
-    # Perform ridge detection
-    ridge_data = irf.run(filename, h=h, thres=thres)
+    # Find ridges (e.g., filaments)
+    ridge_data = irf.run(image_file, h=h, thres=thres)
 
 To save the results to a `.txt` file:
 
 .. code-block:: python
 
     # Save the results to a file
-    irf.write_output(ridge_data, "output_ridges.txt")
+    ridge_file = "ridge_coords.txt"
+    irf.write_output(coords=ridge_data, fname=ridge_file)
 
 **Tips on Parameter Choices:**
 
@@ -56,12 +57,12 @@ To grid the ridge detection results back onto the native grid of the input image
     from crispy import grid_ridge as gr
 
     # Input and output file paths
-    read_file = "output_ridges.txt"     # File containing the ridge coordinates
+    ridge_file = "ridge_coords.txt"     # File containing the ridge coordinates
     image_file = "input_image.fits"     # Input/reference image file
-    write_file = "gridded_result.fits"  # File to save gridded results
+    skel_file = "gridded_skel.fits"     # File to save gridded results (skeletons)
 
     # Grid ridge results
-    gr.grid_skel(read_file, image_file, write_file)
+    gr.grid_skel(readFile=ridge_file, imgFile=image_file, writeFile=skel_file)
 
 Prune Branches
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -72,13 +73,21 @@ To prune branches from the gridded results (i.e., skeletons) into a branchless s
     from crispy.pruning import Skeleton
 
     # Input and output file paths
-    skeleton_file = "gridded_result.fits"   # Gridded skeleton file
-    pruned_file = "pruned_skeleton.fits"    # Output file for pruned skeleton
+    skel_file = "ridge_skel.fits"   # Gridded skeleton file
+    spine_file = "ridge_spine.fits" # Output file for pruned skeletons (spines)
 
     # Load skeleton and apply pruning
-    skel_obj = Skeleton.Skeleton(skeleton_file)
+    skel_obj = Skeleton.Skeleton(skel_file)
     skel_obj.prune_from_scratch()
 
     # Save the pruned skeleton
-    skel_obj.save_pruned_skel(pruned_file, overwrite=True)
+    skel_obj.save_pruned_skel(spine_file, overwrite=True)
 
+
+.. note ::
+
+    If you use the branch-pruning function, please also cite the `FilFinder` software for the
+    2D pruning algorithm from which `MUFASA`'s 3D version is based on:
+
+    Koch & Rosolowsky. "FilFinder: Filamentary structure in molecular clouds."
+    (`2016 <https://ui.adsabs.harvard.edu/abs/2016ascl.soft08009K>`_).

@@ -1,11 +1,7 @@
-# Licensed under an MIT open source license - see LICENSE
 '''
-Taken from FilFinder (v1.7.2)
-Author: Eric Koch
-'''
+Functions curated from FilFinder (v1.7.2) by Eric Koch
 
-from .utilities import *
-from .pixel_ident import *
+'''
 
 import numpy as np
 import scipy.ndimage as nd
@@ -13,27 +9,9 @@ import networkx as nx
 import operator
 import string
 import copy
+import itertools
 
-# Create 4 to 8-connected elements to use with binary hit-or-miss
-struct1 = np.array([[1, 0, 0],
-                    [0, 1, 1],
-                    [0, 0, 0]])
-
-struct2 = np.array([[0, 0, 1],
-                    [1, 1, 0],
-                    [0, 0, 0]])
-
-# Next check the three elements which will be double counted
-check1 = np.array([[1, 1, 0, 0],
-                   [0, 0, 1, 1]])
-
-check2 = np.array([[0, 0, 1, 1],
-                   [1, 1, 0, 0]])
-
-check3 = np.array([[1, 1, 0],
-                   [0, 0, 1],
-                   [0, 0, 1]])
-
+from .structures import two_con, struct1, struct2, check1, check2, check3
 
 def skeleton_length(skeleton):
     '''
@@ -78,7 +56,7 @@ def skeleton_length(skeleton):
     # Remaining pixels are only 8-connected
     # Lengths is same as before, multiplied by sqrt(2)
 
-    eight_labels = nd.label(skel_copy, eight_con())[0]
+    eight_labels = nd.label(skel_copy, two_con)[0]
 
     eight_sizes = nd.sum(
         skel_copy, eight_labels, range(np.max(eight_labels) + 1))
@@ -757,7 +735,7 @@ def main_length(max_path, edge_list, labelisofil, interpts, branch_lengths,
                     if skeleton[pt] == 0:
                         continue
                     skeleton[pt] = 0
-                    lab_try, n = nd.label(skeleton, eight_con())
+                    lab_try, n = nd.label(skeleton, two_con)
                     if n > 1:
                         skeleton[pt] = 1
                     else:
@@ -775,8 +753,6 @@ def main_length(max_path, edge_list, labelisofil, interpts, branch_lengths,
                 ValueError("Must give a save_name when save_png is enabled. No"
                            " plots will be created.")
             import matplotlib.pyplot as p
-            # if verbose:
-            #     print("Filament: %s / %s" % (num + 1, len(labelisofil)))
 
             p.subplot(121)
             p.imshow(skeleton, origin='lower', interpolation="nearest")
@@ -792,3 +768,40 @@ def main_length(max_path, edge_list, labelisofil, interpts, branch_lengths,
                 p.clf()
 
     return main_lengths, longpath_arrays
+
+
+# ============================================================================
+
+def product_gen(n):
+    """
+    Utility function
+
+    Author: Eric Koch (from FilFinder v1.7.2)
+    """
+    for r in itertools.count(1):
+        for i in itertools.product(n, repeat=r):
+            yield "".join(i)
+
+# ============================================================================
+
+def merge_nodes(node, G):
+    '''
+    Combine a node into its neighbors.
+
+    Author: Eric Koch (from FilFinder v1.7.2)
+    '''
+
+    neigb = list(G[node])
+
+    if len(neigb) != 2:
+        return G
+
+    new_weight = G[node][neigb[0]]['weight'] + \
+        G[node][neigb[1]]['weight']
+
+    G.remove_node(node)
+    G.add_edge(neigb[0], neigb[1], weight=new_weight)
+
+    return G
+
+# ============================================================================

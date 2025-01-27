@@ -17,8 +17,8 @@ dependencies = [
     "scikit-image>=0.16",
     "scikit-learn",
     "matplotlib",
-    "tomli", #; python_version < '3.11'
-    "importlib-metadata", #; python_version < '3.8'
+    "tomli; python_version < '3.11'",
+    "importlib-metadata; python_version < '3.8'",
 ]
 readme = "README.md"
 classifiers = [

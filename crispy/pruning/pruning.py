@@ -8,11 +8,57 @@ import copy
 import string
 from ._filfinder_length import product_gen
 from ._filfinder_length import init_lengths as init_lengths_2D
+from .structures import get_base_block
 
 ########################################################################################################################
 
 def branchedPoints(skel, endpt=None):
-    # note: it's more efficient to find the body-points than to find branch-points
+    """
+    Identify branch points in a skeletonized structure.
+
+    Detects branch points in a 2D or 3D skeleton. Branch points are defined as
+    pixels that belong to the skeleton but are not endpoints or body points. If no endpoints
+    are provided, they are calculated automatically.
+
+    Parameters
+    ----------
+    skel : ndarray
+        Binary array representing the skeletonized structure. Non-zero values represent
+        skeleton points, and zero values represent the background.
+
+    endpt : ndarray, optional
+        Precomputed binary array of endpoints in the skeleton. If `None`, the function
+        calculates the endpoints internally.
+
+    Returns
+    -------
+    pt : ndarray
+        Binary array with the same shape as `skel`, where branch points are set to `True`.
+
+    Notes
+    -----
+    - Branch points are determined by excluding body points and endpoints from the skeleton.
+    - It's more efficient to find the body-points than to find branch-points
+    - This function works with both 2D and 3D skeletons, using appropriate connectivity
+      rules (8-connectivity in 2D and 26-connectivity in 3D).
+
+    Examples
+    --------
+    Detect branch points in a 2D skeleton:
+
+    >>> import numpy as np
+    >>> from crispy import grid_ridge
+    >>> skel = np.zeros((5, 5), dtype=bool)
+    >>> skel[2, 1:4] = True
+    >>> skel[1, 2] = True
+    >>> branches = grid_ridge.branchedPoints(skel)
+    >>> print(branches)
+    [[False False False False False]
+     [False False  True False False]
+     [False False False False False]
+     [False False False False False]
+     [False False False False False]]
+    """
     pt = bodyPoints(skel)
     pt = np.logical_and(skel, np.logical_not(pt))
 
@@ -28,20 +74,48 @@ def branchedPoints(skel, endpt=None):
 
 # identify body points (points with only two neighbour by 3-connectivity)
 def bodyPoints(skel):
-    # for 2D skeleton
-    if np.size(skel.shape) == 2:
-        base_block = np.zeros((3, 3))
-        base_block[1, 1] = 1
+    """
+    Identify body points in a skeletonized structure.
 
-    # for 3D skeleton
-    elif np.size(skel.shape) == 3:
-        base_block = np.zeros((3, 3, 3))
-        base_block[1, 1, 1] = 1
+    Detects body points in a 2D or 3D skeleton. Body points are defined as
+    pixels with exactly two neighbors in the skeleton, based on 8-connectivity in 2D or
+    26-connectivity in 3D.
 
-    else:
-        print("[ERROR] the skeleton is neither 2 or 3 dimensions in size!")
-        return None
+    Parameters
+    ----------
+    skel : ndarray
+        Binary array representing the skeletonized structure. Non-zero values represent
+        skeleton points, and zero values represent the background.
 
+    Returns
+    -------
+    pt : ndarray
+        Binary array with the same shape as `skel`, where body points are set to `True`.
+
+    Notes
+    -----
+    - Body points are computed by identifying skeleton points with exactly two neighbors
+      under the specified connectivity rules.
+    - This function supports both 2D and 3D skeletons, adjusting connectivity checks
+      based on the dimensionality.
+
+    Examples
+    --------
+    Detect body points in a 2D skeleton:
+
+    >>> import numpy as np
+    >>> from crispy import grid_ridge
+    >>> skel = np.zeros((5, 5), dtype=bool)
+    >>> skel[2, 1:4] = True
+    >>> body_pts = grid_ridge.bodyPoints(skel)
+    >>> print(body_pts)
+    [[False False False False False]
+     [False False False False False]
+     [False  True  True  True False]
+     [False False False False False]
+     [False False False False False]]
+    """
+    base_block = get_base_block(skel.ndim, return_cent_idx=False)
     ptList = []
 
     # iterate over the "top" layer
@@ -79,22 +153,49 @@ def bodyPoints(skel):
 # identify end points (points with only two neighbour by 3-connectivity)
 # (only works if the skeleton is on 1-pixel in width by 3-connectivity and not 1-connectivity)
 def endPoints(skel):
-    # for 2D skeleton
-    if np.size(skel.shape) == 2:
-        base_block = np.zeros((3, 3))
-        base_block[1, 1] = 1
-        cent_idx = (1, 1)
+    """
+    Identify endpoints in a skeletonized structure.
 
-    # for 3D skeleton
-    elif np.size(skel.shape) == 3:
-        base_block = np.zeros((3, 3, 3))
-        base_block[1, 1, 1] = 1
-        cent_idx = (1, 1, 1)
+    Detects endpoints in a 2D or 3D skeleton. Endpoints are defined as
+    pixels in the skeleton with exactly one neighbor, based on 8-connectivity in 2D or
+    26-connectivity in 3D.
 
-    else:
-        print("[ERROR] the skeleton is neither 2 or 3 dimensions in size!")
-        return None
+    Parameters
+    ----------
+    skel : ndarray
+        Binary array representing the skeletonized structure. Non-zero values represent
+        skeleton points, and zero values represent the background.
 
+    Returns
+    -------
+    ep : ndarray
+        Binary array with the same shape as `skel`, where endpoints are set to `True`.
+
+    Notes
+    -----
+    - Endpoints are determined using hit-or-miss morphology with connectivity rules that
+      detect pixels with only one neighbor.
+    - This function supports both 2D and 3D skeletons, adjusting connectivity checks
+      based on the dimensionality.
+
+    Examples
+    --------
+    Detect endpoints in a 2D skeleton:
+
+    >>> import numpy as np
+    >>> from crispy import grid_ridge
+    >>> skel = np.zeros((5, 5), dtype=bool)
+    >>> skel[2, 1:4] = True
+    >>> skel[1, 2] = True
+    >>> endpoints = grid_ridge.endPoints(skel)
+    >>> print(endpoints)
+    [[False False False False False]
+     [False False  True False False]
+     [False  True False  True False]
+     [False False False False False]
+     [False False False False False]]
+    """
+    base_block, cent_idx = get_base_block(skel.ndim, return_cent_idx=True)
     epList = []
 
     # iterate over all permutation of endpoints

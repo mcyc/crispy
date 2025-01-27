@@ -9,13 +9,14 @@ labeling, pruning, and advanced 2D/3D structure manipulation for astrophysical d
 __author__ = 'mcychen'
 
 import numpy as np
-from scipy import ndimage
-import copy
 from astropy.io import fits
 from skimage import morphology
 from astropy.utils.console import ProgressBar
 
-#======================================================================================================================#
+from .pruning.pruning import endPoints
+from .pruning.structures import get_footprints
+
+# ======================================================================================================================#
 # higher-level wrapper
 def grid_skel(readFile, imgFile, writeFile, **kwargs):
     """
@@ -69,14 +70,15 @@ def grid_skel(readFile, imgFile, writeFile, **kwargs):
 
     """
     kwargs_default = dict(coord_in_xfirst=True, start_index=0, min_length=6, method="robust")
-    kwargs = { **kwargs_default, **kwargs}
+    kwargs = {**kwargs_default, **kwargs}
 
     crds = read_table(readFile)
     img, hdr = fits.getdata(imgFile, header=True)
     skel_cube = clean_grid(crds, img, **kwargs)
     write_skel(writeFile, skel_cube, header=hdr)
 
-#======================================================================================================================#
+
+# ======================================================================================================================#
 # input and output
 
 def read_table(fname, useDict=False):
@@ -121,7 +123,7 @@ def read_table(fname, useDict=False):
     >>> data_dict = grid_ridge.read_table("skeleton_data.txt", useDict=True)
     >>> print(data_dict.keys())
     """
-    values = np.loadtxt(fname,unpack=True)
+    values = np.loadtxt(fname, unpack=True)
 
     if useDict:
         if np.shape(values)[0] == 3:
@@ -141,7 +143,7 @@ def write_skel(filename, data, header):
     fits.writeto(filename=filename, data=data, header=header, overwrite=True)
 
 
-#======================================================================================================================#
+# ======================================================================================================================#
 # label structures (this is the only place where sklearn is needed in the package
 
 
@@ -191,7 +193,6 @@ def label_ridge(coord, eps=1.0, min_samples=5):
     db = DBSCAN(eps=eps, min_samples=min_samples).fit(coord)
     labels = db.labels_
     return labels
-
 
 
 def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length=6, method="robust"):
@@ -259,13 +260,7 @@ def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length=
 
     if method == "robust":
         # define the space where end points may be considered connected by 8-neighborhood in 2D and 26-neighbourhood in
-        # 3D
-        if refdata.ndim == 3:
-            footprint = morphology.cube(5)
-        elif refdata.ndim == 2:
-            footprint = morphology.square(5)
-        else:
-            print("[ERROR] the dimension of the refdata (i.e., {}) is invalid".format(refdata.ndim))
+        footprint = get_footprints(ndim=refdata.ndim, width=5)
 
     print("---gridding {} distinct skeletons---".format(np.max(labels)))
 
@@ -289,9 +284,9 @@ def clean_grid(coord, refdata, coord_in_xfirst=False, start_index=1, min_length=
                 # are removed
                 endpts = endPoints(skl)
                 try:
-                    endpts_lg =  morphology.binary_dilation(endpts, footprint=footprint)
+                    endpts_lg = morphology.binary_dilation(endpts, footprint=footprint)
                 except TypeError:
-                    endpts_lg =morphology.binary_dilation(endpts, selem=footprint)
+                    endpts_lg = morphology.binary_dilation(endpts, selem=footprint)
 
                 # find where the structures are connected
                 overlap_pt = np.logical_and(endpts_lg, others)
@@ -399,9 +394,9 @@ def clean_grid_ppv(coord, refdata, coord_in_xfirst=False, start_index=1, min_len
                 # robust is much less efficient, but
                 endpts = endPoints(skl)
                 try:
-                    endpts_lg =  morphology.binary_dilation(endpts, footprint=morphology.cube(5))
+                    endpts_lg = morphology.binary_dilation(endpts, footprint=morphology.cube(5))
                 except TypeError:
-                    endpts_lg =  morphology.binary_dilation(endpts, selem=morphology.cube(5))
+                    endpts_lg = morphology.binary_dilation(endpts, selem=morphology.cube(5))
 
                 # find where the structures are connected
                 overlap_pt = np.logical_and(endpts_lg, others)
@@ -426,7 +421,7 @@ def clean_grid_ppv(coord, refdata, coord_in_xfirst=False, start_index=1, min_len
     return skel_cube
 
 
-#======================================================================================================================#
+# ======================================================================================================================#
 # grid function
 
 def grid_skeleton(coord, refdata, coord_in_xfirst=False, start_index=1):
@@ -493,7 +488,6 @@ def grid_skeleton(coord, refdata, coord_in_xfirst=False, start_index=1):
     mask[coords] = 1
 
     return mask
-
 
 
 def make_skeleton(coord, refdata, rm_sml_obj=True, coord_in_xfirst=False, start_index=1, min_length=6):
@@ -563,11 +557,11 @@ def make_skeleton(coord, refdata, rm_sml_obj=True, coord_in_xfirst=False, start_
         # label each connected structure
         # Whether to use 4- or 8- "connectivity". In 3D, 4-"connectivity" means connected pixels have to share face,
         # whereas with 8-"connectivity", they have to share only edge or vertex.
-        mask, num = morphology.label(mask, neighbors=8, return_num=True)
+        mask, num = morphology.label(mask, connectivity=2, return_num=True)
 
         # remove filaments that does not meet the aspect ratio criterium in the pp space
-        for i in range(1, num+1):
-            mask_i = mask==i
+        for i in range(1, num + 1):
+            mask_i = mask == i
             fil = np.sum(mask_i, axis=0)
             fil = fil.astype('bool')
             fil = morphology.skeletonize(fil)
@@ -578,9 +572,9 @@ def make_skeleton(coord, refdata, rm_sml_obj=True, coord_in_xfirst=False, start_
 
         # re-label individual branches
         if False:
-            mask, num = morphology.label(mask, neighbors=8, return_num=True)
+            mask, num = morphology.label(mask, connectivity=2, return_num=True)
         else:
-            mask = mask/mask
+            mask = mask / mask
 
         mask = mask.astype('int')
 
@@ -694,8 +688,8 @@ def uniq_per_pix(coord, mask, coord_in_xfirst=False, start_index=1):
     if coord.dtype != 'int64':
         crds_int = np.rint(coord).astype(int)
     else:
-        print("[ERROR]: the provided coord are of the type {} instead of intergers").format(coord.dtype)
-        return None
+        msg = (f"The provided coord are of type {coord.dtype} instead of the supported int")
+        raise ValueError(msg)
 
     crds_int = crds_int - start_index
     crds_int = np.swapaxes(crds_int, 0, 1)
@@ -723,237 +717,3 @@ def uniq_per_pix(coord, mask, coord_in_xfirst=False, start_index=1):
         coord_uniq.append(crd_at_pix[med_idx])
 
     return np.array(coord_uniq).T
-
-
-
-#======================================================================================================================#
-# gridded structures
-
-def branchedPoints(skel, endpt=None):
-    """
-    Identify branch points in a skeletonized structure.
-
-    Detects branch points in a 2D or 3D skeleton. Branch points are defined as
-    pixels that belong to the skeleton but are not endpoints or body points. If no endpoints
-    are provided, they are calculated automatically.
-
-    Parameters
-    ----------
-    skel : ndarray
-        Binary array representing the skeletonized structure. Non-zero values represent
-        skeleton points, and zero values represent the background.
-
-    endpt : ndarray, optional
-        Precomputed binary array of endpoints in the skeleton. If `None`, the function
-        calculates the endpoints internally.
-
-    Returns
-    -------
-    pt : ndarray
-        Binary array with the same shape as `skel`, where branch points are set to `True`.
-
-    Notes
-    -----
-    - Branch points are determined by excluding body points and endpoints from the skeleton.
-    - It's more efficient to find the body-points than to find branch-points
-    - This function works with both 2D and 3D skeletons, using appropriate connectivity
-      rules (8-connectivity in 2D and 26-connectivity in 3D).
-
-    Examples
-    --------
-    Detect branch points in a 2D skeleton:
-
-    >>> import numpy as np
-    >>> from crispy import grid_ridge
-    >>> skel = np.zeros((5, 5), dtype=bool)
-    >>> skel[2, 1:4] = True
-    >>> skel[1, 2] = True
-    >>> branches = grid_ridge.branchedPoints(skel)
-    >>> print(branches)
-    [[False False False False False]
-     [False False  True False False]
-     [False False False False False]
-     [False False False False False]
-     [False False False False False]]
-    """
-    pt = bodyPoints(skel)
-    pt = np.logical_and(skel, np.logical_not(pt))
-
-    # if no end-points are defined, find the end-points first and remove them
-    if endpt is None:
-        print("calculating end points...")
-        endpt = endPoints(skel)
-
-    pt = np.logical_and(pt, np.logical_not(endpt))
-
-    return pt
-
-
-# identify body points (points with only two neighbour by 8-connectivity)
-def bodyPoints(skel):
-    """
-    Identify body points in a skeletonized structure.
-
-    Detects body points in a 2D or 3D skeleton. Body points are defined as
-    pixels with exactly two neighbors in the skeleton, based on 8-connectivity in 2D or
-    26-connectivity in 3D.
-
-    Parameters
-    ----------
-    skel : ndarray
-        Binary array representing the skeletonized structure. Non-zero values represent
-        skeleton points, and zero values represent the background.
-
-    Returns
-    -------
-    pt : ndarray
-        Binary array with the same shape as `skel`, where body points are set to `True`.
-
-    Notes
-    -----
-    - Body points are computed by identifying skeleton points with exactly two neighbors
-      under the specified connectivity rules.
-    - This function supports both 2D and 3D skeletons, adjusting connectivity checks
-      based on the dimensionality.
-
-    Examples
-    --------
-    Detect body points in a 2D skeleton:
-
-    >>> import numpy as np
-    >>> from crispy import grid_ridge
-    >>> skel = np.zeros((5, 5), dtype=bool)
-    >>> skel[2, 1:4] = True
-    >>> body_pts = grid_ridge.bodyPoints(skel)
-    >>> print(body_pts)
-    [[False False False False False]
-     [False False False False False]
-     [False  True  True  True False]
-     [False False False False False]
-     [False False False False False]]
-    """
-    # for 2D skeleton
-    if np.size(skel.shape) == 2:
-        base_block = np.zeros((3,3))
-        base_block[1,1] = 1
-
-    # for 3D skeleton
-    elif np.size(skel.shape) == 3:
-        base_block = np.zeros((3,3,3))
-        base_block[1,1,1] = 1
-
-    else:
-        print("[ERROR] the skeleton is neither 2 or 3 dimensions in size!")
-        return None
-
-    ptList = []
-
-    # iterate over the "top" layer
-    i = 0
-    for idx_top, v_top in np.ndenumerate(base_block[0]):
-        # for each cell in the "top" layer, iterate over teh "bottom" layer
-        for idx_bottom, v_bottom in np.ndenumerate(base_block[2]):
-            str_block = base_block.copy()
-            # populate the two neighbours
-            str_block[(0,) + idx_top] = 1
-            str_block[(2,) + idx_bottom] = 1
-            ptList.append(str_block)
-
-    # now add the permutations that are rotationally symmetric to the above list
-    ptListOri = copy.deepcopy(ptList)
-    for i in ptListOri:
-        ptList.append(np.swapaxes(i, 0, 1))
-
-    # again, for a 3D skeleton
-    if np.size(skel.shape) == 3:
-        for i in ptListOri:
-            ptList.append(np.swapaxes(i, 0, 2))
-
-    # remove the redundant elements
-    ptList = np.unique(np.array(ptList), axis = 0)
-
-    pt = np.full(np.shape(skel), False, dtype=bool)
-
-    for pt_i in ptList:
-        pt = pt + ndimage.binary_hit_or_miss(skel, structure1=pt_i)
-
-    return pt
-
-
-# identify end points (points with only two neighbour by 8-connectivity)
-# (only works if the skeleton is on 1-pixel in width by 8-connectivity and not 4-connectivity)
-def endPoints(skel):
-    """
-    Identify endpoints in a skeletonized structure.
-
-    Detects endpoints in a 2D or 3D skeleton. Endpoints are defined as
-    pixels in the skeleton with exactly one neighbor, based on 8-connectivity in 2D or
-    26-connectivity in 3D.
-
-    Parameters
-    ----------
-    skel : ndarray
-        Binary array representing the skeletonized structure. Non-zero values represent
-        skeleton points, and zero values represent the background.
-
-    Returns
-    -------
-    ep : ndarray
-        Binary array with the same shape as `skel`, where endpoints are set to `True`.
-
-    Notes
-    -----
-    - Endpoints are determined using hit-or-miss morphology with connectivity rules that
-      detect pixels with only one neighbor.
-    - This function supports both 2D and 3D skeletons, adjusting connectivity checks
-      based on the dimensionality.
-
-    Examples
-    --------
-    Detect endpoints in a 2D skeleton:
-
-    >>> import numpy as np
-    >>> from crispy import grid_ridge
-    >>> skel = np.zeros((5, 5), dtype=bool)
-    >>> skel[2, 1:4] = True
-    >>> skel[1, 2] = True
-    >>> endpoints = grid_ridge.endPoints(skel)
-    >>> print(endpoints)
-    [[False False False False False]
-     [False False  True False False]
-     [False  True False  True False]
-     [False False False False False]
-     [False False False False False]]
-    """
-    # for 2D skeleton
-    if np.size(skel.shape) == 2:
-        base_block = np.zeros((3,3))
-        base_block[1,1] = 1
-        cent_idx = (1,1)
-
-    # for 3D skeleton
-    elif np.size(skel.shape) == 3:
-        base_block = np.zeros((3,3,3))
-        base_block[1,1,1] = 1
-        cent_idx = (1,1,1)
-
-    else:
-        print("[ERROR] the skeleton is neither 2 or 3 dimensions in size!")
-        return None
-
-    epList = []
-
-    # iterate over all permutation of endpoints
-    # Note: this does not account for "end points" that are only a pixel long
-    for index, value in np.ndenumerate(base_block):
-        if index != cent_idx:
-            str_block = base_block.copy()
-            str_block[index] = 1
-            epList.append(str_block)
-
-    ep = np.full(np.shape(skel), False, dtype=bool)
-
-    for ep_i in epList:
-        ep = ep + ndimage.binary_hit_or_miss(skel, structure1=ep_i)
-
-    return ep

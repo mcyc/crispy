@@ -14,7 +14,7 @@ dependencies = [
     "scipy",
     "astropy",
     "joblib",
-    "scikit-image",
+    "scikit-imag>=0.16",
     "scikit-learn",
     "matplotlib",
     "tomli; python_version < '3.11'",

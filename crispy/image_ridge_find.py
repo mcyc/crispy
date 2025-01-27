@@ -376,7 +376,24 @@ def image2data(image, thres=0.5, ordXYZ=True, walkerThres=None, overmask=None, m
 
 
 def threshold_local(image, *args, **kwargs):
-    # backwards compatible import of skimage's threshold_local
+    """
+    Apply a local thresholding method to an image for binarization.
+
+    Parameters
+    ----------
+    image : ndarray
+        Input image to be thresholded.
+    *args : tuple
+        Positional arguments passed to the thresholding function.
+    **kwargs : dict
+        Keyword arguments passed to the thresholding function.
+
+    Returns
+    -------
+    mask : ndarray
+        Binary mask of the same shape as `image`, where True values represent
+        pixels above the local threshold.
+    """
     try:
         from skimage.filters import threshold_local
         mask = image > threshold_local(image, *args, **kwargs)

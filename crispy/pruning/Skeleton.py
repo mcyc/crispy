@@ -1,3 +1,7 @@
+"""
+Provides tools for processing, pruning, and analyzing filament skeleton structures in multidimensional data.
+"""
+
 __author__ = 'mcychen'
 
 import numpy as np
@@ -12,29 +16,39 @@ from . import _filfinder_length as ff_length
 ########################################################################################################################
 
 class Skeleton(object):
+    """
+    Represents a skeletonized structure with tools for pruning, analyzing, and processing filament data.
+    """
 
-    def __init__(self, skeleton_raw, header=None, img = None, min_size=3):
-        '''
-        :param skeleton_raw:
-            [ndarray] One pixel wide filament skeleton
-        :param header:
-            The fits header corresponding ot the provided skeleton
-        :param img:
-            [ndarray] A reference image/cube for intensity weighted pruning
-        :param min_size:
-            [int] the minize size of skeleton allowed in the final output
-        :return:
-        '''
-        # skeletonize is used to ensure the input skeleton is indeed one pixel wide
+    def __init__(self, skeleton_raw, header=None, img=None, min_size=3):
+        """
+        Initializes the Skeleton object with a raw skeleton, header, and optional reference image.
 
+        Parameters
+        ----------
+        skeleton_raw : ndarray or str
+            One-pixel-wide filament skeleton as an array or the file path to a FITS file containing the skeleton data.
+        header : fits.Header, optional
+            The FITS header corresponding to the provided skeleton. If `skeleton_raw` is a file path and a header
+            exists,
+            it will be loaded automatically.
+        img : ndarray, optional
+            A reference image or cube used for intensity-weighted pruning. Defaults to None.
+        min_size : int, optional
+            The minimum size (in pixels) of skeleton components allowed in the final output. Defaults to 3.
+
+        Notes
+        -----
+        The `skeletonize` function ensures the input skeleton is one-pixel wide. Small objects below the size threshold
+        specified by `min_size` are removed to ensure compatibility with pruning operations.
+        """
         if isinstance(skeleton_raw, str):
             skeleton_raw, hdr = fits.getdata(skeleton_raw, header=True)
             if hdr is None:
                 header = hdr
 
-        # skeletonize and removing object that's less than 1 pixel in size to ensuer it's compitable with pruning
-
         self.ndim = skeleton_raw.ndim
+        # skeletonize and removing object that's less than 1 pixel in size to ensuer it's compitable with pruning
         self.skeleton_raw = skeletonize(skeleton_raw, method='lee').astype(bool)
         self.skeleton_raw = remove_small_objects(self.skeleton_raw, min_size=min_size, connectivity=self.ndim)
         self.skeleton_full = self.skeleton_raw.copy()
@@ -42,9 +56,32 @@ class Skeleton(object):
         if img is not None:
             self.intensity_img = img
 
-
     def prune_from_scratch(self, use_skylength=True, remove_bad_ppv=True):
-        # the run everything in one go
+        """
+        Executes the full pruning process on the skeleton, including classification,
+        branch property initialization, graph pruning, and length determination.
+
+        Parameters
+        ----------
+        use_skylength : bool, optional
+            Whether to use sky-projected length for pruning and branch properties. Defaults to True.
+        remove_bad_ppv : bool, optional
+            If True, removes branches with unphysical aspect ratios in position-position-velocity (PPV) space.
+            This is only applicable for 3D skeletons. Defaults to True.
+
+        Notes
+        -----
+        This method performs the following sequential steps:
+        1. Removes bad branches if `remove_bad_ppv` is True (3D only).
+        2. Classifies the skeleton structure into branches and intersections.
+        3. Initializes branch properties based on intensity or geometry.
+        4. Prepares the graph representation of the skeleton.
+        5. Finds the longest path within the skeleton graph.
+        6. Prunes the graph based on specified criteria.
+        7. Computes the main length of the pruned skeleton.
+
+        Timing information for the pruning process is printed upon completion.
+        """
         start = time.time()
 
         if self.ndim ==3 and remove_bad_ppv:
@@ -62,6 +99,23 @@ class Skeleton(object):
         print("total time used to prune the branches: {0}".format(delta_time))
 
     def save_pruned_skel(self, outpath, overwrite=True):
+        """
+        Saves the pruned skeleton data to a FITS file.
+
+        Parameters
+        ----------
+        outpath : str
+            The file path where the pruned skeleton will be saved.
+        overwrite : bool, optional
+            If True, overwrites the existing file at `outpath`. Defaults to True.
+
+        Notes
+        -----
+        If the `length_thresh` attribute has not been set prior to calling this method,
+        it will automatically compute the main length of the pruned skeleton before saving.
+        The pruned skeleton data is saved in a labeled format, which can be extended for
+        future analysis or visualization purposes.
+        """
         if not hasattr(self, 'length_thresh'):
             self.main_length()
         # labeling the skeletons can be an useful feature in the future
@@ -69,6 +123,22 @@ class Skeleton(object):
         fits.writeto(outpath, data, self.header, overwrite=overwrite)
 
     def remove_bad_branches(self, v2pp_ratio=1.0):
+        """
+        Removes branches with unphysical aspect ratios in position-position-velocity (PPV) space.
+
+        Parameters
+        ----------
+        v2pp_ratio : float, optional
+            The maximum allowable ratio of velocity to positional gradients. Branches exceeding
+            this ratio are considered "bad" and are removed. Defaults to 1.0.
+
+        Notes
+        -----
+        This method identifies and removes branches that have unphysical velocity gradients
+        in the PPV space. The skeleton is re-skeletonized after removal to ensure consistency.
+
+        Timing information for the branch removal process is printed upon completion.
+        """
         # remove branches that has "unphysical" aspect-ratio in the ppv space (i.e., unphysical velocity gradient)
         start = time.time()
         print("removing bad ppv branches...")
@@ -84,12 +154,26 @@ class Skeleton(object):
         delta_time = timedelta(seconds=delta_time)
         print("time took to remove the bad branches: {0}".format(delta_time))
 
-
     def classify_structure(self):
+        """
+        Classify the skeleton into labeled branches, intersection points, and endpoints.
+
+        This method processes the skeleton to identify its components and assigns unique
+        labels to individual branches while detecting intersections and endpoints.
+        """
         self.labelisofil, self.interpts, self.ends = pruning.classify_structure(self.skeleton_full)
 
+    def init_branch_properties(self, img=None, use_skylength=True):
+        """
+        Initialize the properties of branches in the skeleton.
 
-    def init_branch_properties(self, img = None, use_skylength=True):
+        Parameters
+        ----------
+        img : ndarray, optional
+            A reference image used to calculate intensity-based properties. Defaults to None.
+        use_skylength : bool, optional
+            Whether to use sky-projected length for branch calculations. Defaults to True.
+        """
         if img is not None:
             self.intensity_img = img
 
@@ -103,8 +187,13 @@ class Skeleton(object):
             self.branch_properties = pruning.init_branch_properties(self.labelisofil, self.intensity_img, use_skylength,
                                                                     ndim=self.ndim)
 
-
     def pre_graph(self):
+        """
+        Prepare the graph representation of the skeleton, defining nodes and edges.
+
+        This method generates the graph structure based on labeled branches, intersection points,
+        and endpoints in the skeleton.
+        """
         if not hasattr(self, 'branch_properties'):
             self.init_branch_properties()
 
@@ -120,14 +209,25 @@ class Skeleton(object):
         else:
             print("[ERROR]: the number of dimension for the data is incorrect.")
 
-
     def longest_path(self):
+        """
+        Identify the longest path within the graph representation of the skeleton.
+
+        This method calculates the maximum-length path through the skeleton's graph.
+        """
         if not hasattr(self, 'edge_list'):
             self.pre_graph()
         self.max_path, self.extremum, self.graphs = ff_length.longest_path(edge_list=self.edge_list, nodes=self.nodes) #ff.
 
-
     def prune_graph(self, length_thresh=0.5):
+        """
+        Prune the skeleton graph based on a specified length threshold.
+
+        Parameters
+        ----------
+        length_thresh : float, optional
+            The minimum branch length to retain in the pruned graph. Defaults to 0.5.
+        """
         self.length_thresh = length_thresh
 
         if not hasattr(self, 'graphs'):
@@ -138,8 +238,12 @@ class Skeleton(object):
                                   self.branch_properties, self.loop_edges, prune_criteria='length',
                                   length_thresh=self.length_thresh) #ff.
 
-
     def main_length(self):
+        """
+        Compute the main lengths of the pruned skeleton and generate labeled spines.
+
+        This method calculates the overall length of the skeleton and identifies the main branches.
+        """
         if not hasattr(self, 'length_thresh'):
             self.prune_graph()
 
@@ -157,5 +261,3 @@ class Skeleton(object):
             self.main_lengths, self.spines =\
                 pruning.main_length_3D(self.max_path, self.edge_list, self.labelisofil, self.interpts,
                                        self.branch_properties['length'], img_scale=1.0)
-
-

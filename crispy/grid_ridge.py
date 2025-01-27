@@ -138,6 +138,19 @@ def read_table(fname, useDict=False):
 
 
 def write_skel(filename, data, header):
+    """
+    Write a gridded image to a FITS file.
+
+    Parameters
+    ----------
+    filename : str
+        The name of the FITS file to write.
+    data : ndarray
+        The image data to be written to the FITS file.
+    header : fits.Header
+        The FITS header to include in the file.
+
+    """
     # write gridded skeleton
     data = data.astype('uint8')
     fits.writeto(filename=filename, data=data, header=header, overwrite=True)

@@ -1,3 +1,7 @@
+"""
+Utilities for skeleton processing, branch property initialization, and pruning in 2D and 3D structures.
+"""
+
 __author__ = 'mcychen'
 
 from scipy import ndimage
@@ -8,17 +12,18 @@ import copy
 import string
 from ._filfinder_length import product_gen
 from ._filfinder_length import init_lengths as init_lengths_2D
-from .structures import get_base_block
+from .structures import get_base_block, two_con_3D
 
-########################################################################################################################
+
+# ==============================================================================================
 
 def branchedPoints(skel, endpt=None):
     """
     Identify branch points in a skeletonized structure.
 
     Detects branch points in a 2D or 3D skeleton. Branch points are defined as
-    pixels that belong to the skeleton but are not endpoints or body points. If no endpoints
-    are provided, they are calculated automatically.
+    skeleton pixels that are not endpoints or body points. If no endpoints
+    are provided, they are computed automatically.
 
     Parameters
     ----------
@@ -37,21 +42,22 @@ def branchedPoints(skel, endpt=None):
 
     Notes
     -----
-    - Branch points are determined by excluding body points and endpoints from the skeleton.
-    - It's more efficient to find the body-points than to find branch-points
-    - This function works with both 2D and 3D skeletons, using appropriate connectivity
-      rules (8-connectivity in 2D and 26-connectivity in 3D).
+    - Branch points are identified by excluding body points and endpoints from the skeleton.
+    - The function automatically adjusts for 2D or 3D skeletons using appropriate connectivity rules.
+    - This function relies on `bodyPoints` to determine body points and `endPoints` to calculate endpoints
+      if `endpt` is not provided.
+    - This code is based on the 2D version seen in FilFinder (v1.7.2) by Eric Koch
 
     Examples
     --------
     Detect branch points in a 2D skeleton:
 
     >>> import numpy as np
-    >>> from crispy import grid_ridge
+    >>> from crispy import pruning
     >>> skel = np.zeros((5, 5), dtype=bool)
     >>> skel[2, 1:4] = True
     >>> skel[1, 2] = True
-    >>> branches = grid_ridge.branchedPoints(skel)
+    >>> branches = pruning.branchedPoints(skel)
     >>> print(branches)
     [[False False False False False]
      [False False  True False False]
@@ -78,8 +84,7 @@ def bodyPoints(skel):
     Identify body points in a skeletonized structure.
 
     Detects body points in a 2D or 3D skeleton. Body points are defined as
-    pixels with exactly two neighbors in the skeleton, based on 8-connectivity in 2D or
-    26-connectivity in 3D.
+    pixels with exactly two neighbors in the skeleton, based on 2-connectivity in ND.
 
     Parameters
     ----------
@@ -98,6 +103,7 @@ def bodyPoints(skel):
       under the specified connectivity rules.
     - This function supports both 2D and 3D skeletons, adjusting connectivity checks
       based on the dimensionality.
+    - This code is based on the 2D version seen in FilFinder (v1.7.2) by Eric Koch.
 
     Examples
     --------
@@ -157,8 +163,7 @@ def endPoints(skel):
     Identify endpoints in a skeletonized structure.
 
     Detects endpoints in a 2D or 3D skeleton. Endpoints are defined as
-    pixels in the skeleton with exactly one neighbor, based on 8-connectivity in 2D or
-    26-connectivity in 3D.
+    pixels in the skeleton with exactly one neighbor, based on 2-connectivity in ND.
 
     Parameters
     ----------
@@ -177,6 +182,7 @@ def endPoints(skel):
       detect pixels with only one neighbor.
     - This function supports both 2D and 3D skeletons, adjusting connectivity checks
       based on the dimensionality.
+    - This code is based on the 2D version seen in FilFinder (v1.7.2) by Eric Koch.
 
     Examples
     --------
@@ -241,6 +247,7 @@ def walk_through_segment_3D(segment):
     - The traversal may fail if the segment width exceeds one pixel at any point due to
       imperfect skeletonization.
     - Endpoints are detected using the `endPoints` function.
+    - This code is based on the 2D version seen in FilFinder (v1.7.2) by Eric Koch.
 
     Raises
     ------
@@ -331,6 +338,7 @@ def init_lengths_3D(labelisofil, array_offsets=None, img=None, use_skylength=Tru
     - Branch lengths are calculated using the `walk_through_segment_3D` function.
     - Sky-projected lengths are computed by ignoring the velocity axis during length calculation.
     - The function pads branch arrays to prevent edge-related errors during traversal.
+    - This code is based on the 2D version seen in FilFinder (v1.7.2) by Eric Koch.
 
     Raises
     ------
@@ -378,7 +386,7 @@ def init_lengths_3D(labelisofil, array_offsets=None, img=None, use_skylength=Tru
             # Now find the length on the branch
             if branch_array.sum() == 1:
                 # if single pixel. No need to find length
-                # For use in longest path algorithm, will be set to zero for final analysis
+                # For use in the longest path algorithm, will be set to zero for final analysis
                 branch_length = 0.5
             else:
                 wlk_idx = walk_through_segment_3D(branch_array)
@@ -416,8 +424,57 @@ def init_lengths_3D(labelisofil, array_offsets=None, img=None, use_skylength=Tru
 
 
 def init_branch_properties(labelisofil, ndim, img=None, use_skylength=True):
-    # a quick hack to integrate the fil_finder updates (version 2.0.dev887) into the code
-    # note: fil_finder no longer uses init_branch_properties function
+    """
+    Initialize branch properties for 2D or 3D skeletons.
+
+    Computes lengths and intensities of branches in skeletons, supporting both
+    2D and 3D skeleton structures. For 2D skeletons, the lengths are initialized
+    using `init_lengths_2D`, while for 3D skeletons, `init_lengths_3D` is used.
+
+    Parameters
+    ----------
+    labelisofil : list of ndarray
+        A list of labeled skeleton arrays, where branches are labeled with unique integers,
+        and intersections have been removed.
+
+    ndim : int
+        The number of dimensions of the skeletons. Must be either 2 or 3.
+
+    img : ndarray, optional
+        Intensity image associated with the skeletons. If provided, the average intensity
+        along each branch is calculated. Defaults to None.
+
+    use_skylength : bool, optional
+        If True, calculates the sky-projected length for each branch (ignoring the velocity axis).
+        If False, calculates the full 3D length in PPV space for 3D skeletons. Defaults to True.
+
+    Returns
+    -------
+    branch_properties : dict
+        A dictionary containing the following keys:
+        - `length`: List of branch lengths.
+        - `intensity`: List of average intensities for each branch.
+        - `pixels`: List of pixel coordinates for each branch.
+
+    Notes
+    -----
+    - The function dispatches to different implementations depending on the dimensionality (`ndim`).
+    - This code is based on the 2D version seen in FilFinder (v1.7.2) by Eric Koch, which as been
+      depreciated
+
+    Examples
+    --------
+    Initialize branch properties for a 2D skeleton:
+
+    >>> import numpy as np
+    >>> from crispy import grid_ridge
+    >>> skel = np.zeros((5, 5), dtype=bool)
+    >>> skel[2, 1:4] = True
+    >>> labelisofil = [skel.astype(int)]
+    >>> props = grid_ridge.init_branch_properties(labelisofil, ndim=2)
+    >>> print(props["length"])
+    [[2.0]]
+    """
     if ndim == 2:
         num = len(labelisofil)
         array_offsets = np.ones((num, 1, 2), dtype=int)
@@ -456,7 +513,6 @@ def segment_len(wlk_idx, remove_axis=None):
     - The calculated length may underestimate the actual length by approximately one pixel
       due to measuring from the center of each pixel.
     - Excluding an axis (e.g., velocity in PPV space) computes the sky-projected length.
-
     """
     crd_diff = np.diff(np.swapaxes(wlk_idx, 0, 1) * 1.0)
     if remove_axis is not None:
@@ -464,7 +520,6 @@ def segment_len(wlk_idx, remove_axis=None):
 
     dst = np.sum(np.sqrt(np.sum(crd_diff ** 2, axis=0)))
     return dst
-
 
 
 def remove_bad_ppv_branches(labBodyPtAry, num_lab, refStructure=None, max_pp_length=9.0, v2pp_ratio=1.5, method="full"):
@@ -625,6 +680,7 @@ def pre_graph_3D(labelisofil, branch_properties, interpts, ends, w=0.0):
       with more than 26 intersections, labels extend to AA, AB, etc.
     - The `path_weighting` function calculates edge weights using both length and
       intensity, with the relative contribution controlled by `w`.
+    - This code is based on the 2D version seen in FilFinder (v1.7.2) by Eric Koch.
 
     Raises
     ------
@@ -669,8 +725,6 @@ def pre_graph_3D(labelisofil, branch_properties, interpts, ends, w=0.0):
         nodes.append([labelisofil[n][i] for i in ends[n]])
 
         # Intersection nodes are given by the intersections points of the filament.
-        # They are labeled alphabetically (if len(interpts[n])>26, subsequent labels are AA,AB,...).
-        # The branch labels attached to each intersection are included for future use.
         for intersec in interpts[n]:
             uniqs = []
             for i in intersec:  # Intersections can contain multiple pixels
@@ -746,7 +800,8 @@ def pre_graph_3D(labelisofil, branch_properties, interpts, ends, w=0.0):
     return edge_list, nodes, loop_edges
 
 
-def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths, img_scale, verbose=False, save_png=False, save_name=None):
+def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths, img_scale, verbose=False, save_png=False,
+                   save_name=None):
     """
     Compute the main lengths of 3D skeletons and generate longest path arrays.
 
@@ -801,13 +856,8 @@ def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths, i
     - The `max_path` input determines the longest path in each skeleton.
     - This function is adapted from the 2D `main_length` function in FilFinder and
       includes modifications for 3D structures.
+    - This code is based on the 2D version seen in FilFinder (v1.7.2) by Eric Koch.
     """
-    def eight_con():
-        '''
-        3D version of eight_con() from fil_finder/_filfinder_utilities.py
-        '''
-        return np.ones((3, 3, 3))
-
     main_lengths = []
     longpath_cube = np.zeros(labelisofil[0].shape, dtype=bool)
 
@@ -861,7 +911,7 @@ def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths, i
                     if skeleton[pt] == 0:
                         continue
                     skeleton[pt] = 0
-                    lab_try, n = ndimage.label(skeleton, eight_con())
+                    lab_try, n = ndimage.label(skeleton, two_con_3D)
                     if n > 1:
                         skeleton[pt] = 1
                     else:
@@ -871,7 +921,8 @@ def main_length_3D(max_path, edge_list, labelisofil, interpts, branch_lengths, i
                 count = 0
 
             # main_lengths.append(skeleton_length(skeleton) * img_scale)
-            # This is a place holding hack at the moment and main_lengths does not actually hold the lengths of the longest paths
+            # This is a place holding hack at the moment and main_lengths does not actually hold the lengths of the
+            # longest paths
             main_lengths.append(1.0 * img_scale)
 
         longpath_cube[skeleton.astype(bool)] = True
@@ -914,8 +965,10 @@ def classify_structure(skeleton):
     - Intersection points are labeled separately, and their coordinates are stored
       in `interpts`.
     - Branches are labeled after removing intersections from the skeleton.
+    - This code is based on the 2D version seen in FilFinder (v1.7.2) by Eric Koch.
 
     """
+
     def labCrdList(labelled, num, refStructure):
         '''
         Place the coordinates of individual, labelled structure a list
@@ -929,7 +982,7 @@ def classify_structure(skeleton):
         return crd_list
 
     # label the skeletons
-    connectivity = skeleton.ndim #use maximum connectivity for the dimensions
+    connectivity = skeleton.ndim  # use maximum connectivity for the dimensions
     SkLb, SkNum = morphology.label(skeleton, connectivity=connectivity, return_num=True)
 
     # acquire end-points, label them, and place them into a coordinate list
@@ -962,9 +1015,3 @@ def classify_structure(skeleton):
         labelisofil.append(morphology.label(skl, connectivity=connectivity, return_num=False))
 
     return labelisofil, interpts, ends
-
-
-
-
-
-

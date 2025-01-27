@@ -1,7 +1,6 @@
-# Licensed under an MIT open source license - see LICENSE
 '''
-Mostly borrowed from FilFinder (v1.7.2)
-Author: Eric Koch
+Functions curated from FilFinder (v1.7.2) by Eric Koch
+
 '''
 
 import numpy as np
@@ -12,7 +11,7 @@ import string
 import copy
 import itertools
 
-from .structures import eight_con, struct1, struct2, check1, check2, check3
+from .structures import two_con, struct1, struct2, check1, check2, check3
 
 def skeleton_length(skeleton):
     '''
@@ -57,7 +56,7 @@ def skeleton_length(skeleton):
     # Remaining pixels are only 8-connected
     # Lengths is same as before, multiplied by sqrt(2)
 
-    eight_labels = nd.label(skel_copy, eight_con())[0]
+    eight_labels = nd.label(skel_copy, two_con)[0]
 
     eight_sizes = nd.sum(
         skel_copy, eight_labels, range(np.max(eight_labels) + 1))
@@ -736,7 +735,7 @@ def main_length(max_path, edge_list, labelisofil, interpts, branch_lengths,
                     if skeleton[pt] == 0:
                         continue
                     skeleton[pt] = 0
-                    lab_try, n = nd.label(skeleton, eight_con())
+                    lab_try, n = nd.label(skeleton, two_con)
                     if n > 1:
                         skeleton[pt] = 1
                     else:
@@ -754,8 +753,6 @@ def main_length(max_path, edge_list, labelisofil, interpts, branch_lengths,
                 ValueError("Must give a save_name when save_png is enabled. No"
                            " plots will be created.")
             import matplotlib.pyplot as p
-            # if verbose:
-            #     print("Filament: %s / %s" % (num + 1, len(labelisofil)))
 
             p.subplot(121)
             p.imshow(skeleton, origin='lower', interpolation="nearest")

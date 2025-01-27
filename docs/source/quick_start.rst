@@ -17,18 +17,18 @@ To detect density ridges in a `.fits` image:
     from crispy import image_ridge_find as irf
 
     # Input parameters
-    filename = "input_image.fits"   # Input image file
+    image_name = "input_image.fits" # Input image file
     thres = 0.5                     # Minimum density threshold for valid data points
     h = 2                           # Smoothing bandwidth (recommended: Nyquist-sampled resolution)
 
     # Finding ridges
-    ridge_data = irf.run(filename, h=h, thres=thres)
+    ridge_data = irf.run(image_name, h=h, thres=thres)
 
 To save the results to a `.txt` file
 
 .. code-block:: python
 
     # Save the results to a file
-    irf.write_output(ridge_data, "output_ridges.txt")
+    irf.write_output(ridge_data, "ridge_coords.txt")
 
 For more details, please see :doc:`Tutorials <tutorials/index>`

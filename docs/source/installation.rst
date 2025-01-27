@@ -21,7 +21,7 @@ Instructions
 
    .. code-block:: bash
 
-       pip install astro-crispy
+       pip install crispy-learn
 
 2. **Install from Source**:
    to install the latest developing version, clone the CRISPy GitHub repository:
@@ -33,12 +33,12 @@ Instructions
         pip install -e .
 
 
-   To use a specific version using a tag, for example, v1.3.0, run the following after
+   To use a specific version using a tag, for example, v1.2.0, run the following after
    the initial install:
 
    .. code-block:: bash
 
-        git checkout v1.3.0
+        git checkout v1.2.0
         git pull
 
    .. note::

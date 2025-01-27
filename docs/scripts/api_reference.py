@@ -14,7 +14,7 @@ API_REFERENCE = {
             {'name': 'make_skeleton', 'type': 'function', 'description': '''Map CRISPy skeleton coordinates onto a reference grid and clean the skeleton.'''},
             {'name': 'read_table', 'type': 'function', 'description': '''Read filament skeleton data from a file.'''},
             {'name': 'uniq_per_pix', 'type': 'function', 'description': '''Reduce a list of ridge coordinates to one unique point per pixel.'''},
-            {'name': 'write_skel', 'type': 'function', 'description': '''Undocumented'''}
+            {'name': 'write_skel', 'type': 'function', 'description': '''Write a gridded image to a FITS file.'''}
         ]
     },
     'crispy.image_ridge_find': {
@@ -24,7 +24,7 @@ API_REFERENCE = {
             {'name': 'image2data', 'type': 'function', 'description': '''Convert an image into a format compatible with the SCMS algorithm.'''},
             {'name': 'read_output', 'type': 'function', 'description': '''Read SCMS output files and retrieve walker coordinates.'''},
             {'name': 'run', 'type': 'function', 'description': '''Identify density ridges in a gridded image using the SCMS algorithm.'''},
-            {'name': 'threshold_local', 'type': 'function', 'description': '''Undocumented'''},
+            {'name': 'threshold_local', 'type': 'function', 'description': '''Apply a local thresholding method to an image for binarization.'''},
             {'name': 'write_output', 'type': 'function', 'description': '''Write SCMS output coordinates to a file.'''}
         ]
     },
@@ -39,20 +39,20 @@ API_REFERENCE = {
     },
     'crispy.pruning.Skeleton': {
         'module': 'crispy.pruning.Skeleton',
-        'description': '''Undocumented''',
+        'description': '''Provides tools for processing, pruning, and analyzing filament skeleton structures in multidimensional data.''',
         'members': [
-            {'name': 'Skeleton', 'type': 'class', 'description': '''Undocumented'''}
+            {'name': 'Skeleton', 'type': 'class', 'description': '''Represents a skeletonized structure with tools for pruning, analyzing, and processing filament data.'''}
         ]
     },
     'crispy.pruning.pruning': {
         'module': 'crispy.pruning.pruning',
-        'description': '''Undocumented''',
+        'description': '''Utilities for skeleton processing, branch property initialization, and pruning in 2D and 3D structures.''',
         'members': [
             {'name': 'bodyPoints', 'type': 'function', 'description': '''Identify body points in a skeletonized structure.'''},
             {'name': 'branchedPoints', 'type': 'function', 'description': '''Identify branch points in a skeletonized structure.'''},
             {'name': 'classify_structure', 'type': 'function', 'description': '''Classify the components of a skeleton into labeled branches, intersections, and endpoints.'''},
             {'name': 'endPoints', 'type': 'function', 'description': '''Identify endpoints in a skeletonized structure.'''},
-            {'name': 'init_branch_properties', 'type': 'function', 'description': '''Undocumented'''},
+            {'name': 'init_branch_properties', 'type': 'function', 'description': '''Initialize branch properties for 2D or 3D skeletons.'''},
             {'name': 'init_lengths_3D', 'type': 'function', 'description': '''Compute lengths and intensities for branches in 3D skeletons.'''},
             {'name': 'main_length_3D', 'type': 'function', 'description': '''Compute the main lengths of 3D skeletons and generate longest path arrays.'''},
             {'name': 'pre_graph_3D', 'type': 'function', 'description': '''Convert 3D skeletons into graph representations with weighted edges.'''},
@@ -63,11 +63,10 @@ API_REFERENCE = {
     },
     'crispy.pruning.structures': {
         'module': 'crispy.pruning.structures',
-        'description': '''A place host specialized binary strucutres.''',
+        'description': '''Provides specialized binary structures and connectivity footprints for 2D and 3D skeleton processing.''',
         'members': [
-            {'name': 'two_con', 'type': 'function', 'description': '''Undocumented'''},
-            {'name': 'get_base_block', 'type': 'function', 'description': '''Undocumented'''},
-            {'name': 'get_footprints', 'type': 'function', 'description': '''Undocumented'''}
+            {'name': 'get_base_block', 'type': 'function', 'description': '''Generate a base block array for 2D or 3D skeleton structures.'''},
+            {'name': 'get_footprints', 'type': 'function', 'description': '''Generate a footprint array representing connectivity in 2D or 3D space.'''}
         ]
     },
     'crispy.scms': {

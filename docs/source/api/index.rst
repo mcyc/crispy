@@ -300,16 +300,6 @@ you can also search with the search bar located on the top right corner of the w
 
              :mod:`crispy.pruning.pruning`
    
-   * - :obj:`~crispy.pruning.structures.two_con`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.pruning.structures
-
-          .. autoshortsummary:: crispy.pruning.structures.two_con
-
-          .. container:: caption
-
-             :mod:`crispy.pruning.structures`
    * - :obj:`~crispy.pruning.structures.get_base_block`
      - .. container:: sk-apisearch-desc
 

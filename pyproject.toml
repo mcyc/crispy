@@ -10,15 +10,15 @@ requires-python = ">=3.8"
 license = { file = "LICENSE" }
 authors = [{ name = "Michael Chun-Yuan Chen", email = "mcyc@users.noreply.github.com" }]
 dependencies = [
-    "numpy",
+    "numpy>=1.24",
     "scipy",
     "astropy",
     "joblib",
     "scikit-image>=0.16",
     "scikit-learn",
     "matplotlib",
-    "tomli; python_version < '3.11'",
-    "importlib-metadata; python_version < '3.8'",
+    "tomli", #; python_version < '3.11'
+    "importlib-metadata", #; python_version < '3.8'
 ]
 readme = "README.md"
 classifiers = [

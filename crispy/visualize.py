@@ -4,8 +4,8 @@ from astropy.stats import median_absolute_deviation as mads
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
-def render_point_cloud(cube, savename=None, showfig=False, bins=5, vmin=None, vmax=None,
-                       cmap="magma_r", z_stretch=1, fig=None, cbar_label=""):
+def render_point_cloud(cube, savename=None, showfig=False, bins=15, vmin=None, vmax=None,
+                       cmap="magma_r", z_stretch=1, size=3, fig=None, cbar_label=""):
     """
     Render a 3D scatter plot from a 3D data cube with efficient visualization.
 
@@ -31,6 +31,8 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=5, vmin=None, vm
         Colormap for the data points. Uses Plotly-compatible colormap names. Default is "magma_r".
     z_stretch : float, optional
         Scaling factor for the Z-axis to modify aspect ratio. Default is 1.
+    size : int, optional
+        The marker (i.e., point) size used to render the point cloud. Default is 2
     fig : plotly.graph_objects.Figure, optional
         Existing Plotly figure to add the scatter plot to. If None, a new figure is created. Default is None.
     cbar_label : str, optional
@@ -61,7 +63,9 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=5, vmin=None, vm
     if vmin is None:
         vmin = np.percentile(valid_values, 10)
     if vmax is None:
-        vmax = np.percentile(valid_values, 99)
+        # filter outliers and add a small padding
+        vpad = 0.5 / bins if bins < 5 else 0.1
+        vmax = np.percentile(valid_values, 99.5) * (1 + vpad)
 
     # Mask values outside the range [vmin, vmax]
     mask = np.isfinite(cube) & (cube >= vmin) & (cube <= vmax)
@@ -91,7 +95,7 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=5, vmin=None, vm
             z=sub_z,
             mode='markers',
             marker=dict(
-                size=3,
+                size=size,
                 color=sub_values,
                 colorscale=cmap,
                 cmin=vmin,
@@ -139,7 +143,7 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=5, vmin=None, vm
     return fig
 
 
-def ridge_trace_3D(x, y, z, size=2, color='darkred', opacity=0.5, name='ridge'):
+def ridge_trace_3D(x, y, z, size=2, color='black', opacity=0.5, name='ridge'):
     """
     Create a 3D scatter trace for visualizing ridge points.
 
@@ -187,7 +191,8 @@ def _get_xyz(cube):
     return x, y, z
 
 
-def skel_volume(image, savename=None, showfig=True, opacity=0.7, colorscale='inferno', fig=None):
+def skel_volume(image, savename=None, showfig=True, opacity=0.75, colorscale='inferno', fig=None, z_stretch=1,
+                cbar_label=''):
     """
     Render a 3D skeleton volume using isosurface visualization.
 
@@ -209,6 +214,10 @@ def skel_volume(image, savename=None, showfig=True, opacity=0.7, colorscale='inf
         Colormap for the isosurfaces. Uses Plotly-compatible colormap names. Default is "inferno".
     fig : plotly.graph_objects.Figure, optional
         Existing Plotly figure to add the volume rendering to. If None, a new figure is created. Default is None.
+    z_stretch : float, optional
+        Scaling factor for the Z-axis to modify aspect ratio. Default is 1.
+    cbar_label : str, optional
+        Label for the colorbar. Default is an empty string.
 
     Returns
     -------
@@ -230,11 +239,13 @@ def skel_volume(image, savename=None, showfig=True, opacity=0.7, colorscale='inf
         image = image.astype(np.uint8)
 
     return render_volume(image, savename=savename, showfig=showfig, isomin=1e-3, isomax=1e-2, surface_count=1,
-                         opacity=opacity, colorscale=colorscale, showscale=False, fig=fig)
+                         opacity=opacity, colorscale=colorscale, showscale=False, fig=fig, z_stretch=z_stretch,
+                         cbar_labe=cbar_label)
 
 
-def render_volume(cube, savename=None, showfig=False, isomin=None, isomax=None, surface_count=21,
-                  opacity=None, colorscale='YlGnBu', showscale=True, fig=None, val_fill=0.0):
+def render_volume(cube, savename=None, showfig=False, vmin=None, vmax=None, surface_count=16,
+                  opacity=None, colorscale='YlGnBu', z_stretch=1, showscale=True, fig=None,
+                  val_fill=0.0, cbar_label=''):
     """
     Render a 3D volume using layers of isosurfaces.
 
@@ -250,9 +261,9 @@ def render_volume(cube, savename=None, showfig=False, isomin=None, isomax=None, 
         Path to save the interactive HTML file. If None, the figure is not saved. Default is None.
     showfig : bool, optional
         Whether to display the figure interactively. Default is False.
-    isomin : float, optional
+    vmin : float, optional
         Minimum isosurface value. If None, the 10-sigma level above the estimated RMS is used. Default is None.
-    isomax : float, optional
+    vmax : float, optional
         Maximum isosurface value. If None, the 99.99th percentile of the data is used. Default is None.
     surface_count : int, optional
         Number of isosurfaces to plot. Higher values create finer visualization but increase rendering cost. Default is 21.
@@ -260,12 +271,16 @@ def render_volume(cube, savename=None, showfig=False, isomin=None, isomax=None, 
         Opacity of the isosurfaces. If None, it is set to `2 / surface_count` for semi-transparency. Default is None.
     colorscale : str, optional
         Colormap for the isosurfaces. Uses Plotly-compatible colormap names. Default is "YlGnBu".
+    z_stretch : float, optional
+        Scaling factor for the Z-axis to modify aspect ratio. Default is 1.
     showscale : bool, optional
         Whether to display the color scale bar. Default is True.
     fig : plotly.graph_objects.Figure, optional
         Existing Plotly figure to add the volume rendering to. If None, a new figure is created. Default is None.
     val_fill : float, optional
         Value to replace NaN voxels in the cube. Default is 0.0.
+    cbar_label : str, optional
+        Label for the colorbar. Default is an empty string.
 
     Returns
     -------
@@ -275,7 +290,7 @@ def render_volume(cube, savename=None, showfig=False, isomin=None, isomax=None, 
     Notes
     -----
     - NaN values in the cube are replaced with `val_fill` before visualization.
-    - Isosurface values range between `isomin` and `isomax`, divided into `surface_count` levels.
+    - Isosurface values range between `vmin` and `vmax`, divided into `surface_count` levels.
     - The visualization requires non-NaN input data for accurate results.
 
     Examples
@@ -297,18 +312,18 @@ def render_volume(cube, savename=None, showfig=False, isomin=None, isomax=None, 
     if fig is None:
         fig = make_subplots(rows=1, cols=1)
 
-    if isomax is None:
+    if vmax is None:
         # use 99.99 percentile
-        isomax = np.percentile(cube, 99.99)
-        print("no isomax provided, using the 99.99 percentile value: {}".format(np.round(isomax,2)))
+        vmax = np.percentile(cube, 99.99)
+        print("no vamx provided, using the 99.99 percentile value: {}".format(np.round(vmax,2)))
 
-    if isomin is None:
+    if vmin is None:
         # use the estimated 10-sigma
-        isomin = mads(cube, ignore_nan=True)*10.0
+        vmin = mads(cube, ignore_nan=True)*10.0
 
-        if isomin > isomax:
-            isomin = isomax/2.0
-        print("no isomin provided, using the 10 sigma above the rms value: {}".format(np.round(isomin,2)))
+        if vmin > vmax:
+            vmin = vmax/2.0
+        print("no vmin provided, using the 10 sigma above the rms value: {}".format(np.round(vmin,2)))
 
     if opacity is None:
         if surface_count > 2:
@@ -321,11 +336,35 @@ def render_volume(cube, savename=None, showfig=False, isomin=None, isomax=None, 
         z=Z.flatten(),
         value=cube.flatten(),
         colorscale=colorscale,
-        isomin=isomin,
-        isomax=isomax,
+        isomin=vmin,
+        isomax=vmax,
         opacity=opacity,
         surface_count=surface_count,
         showscale = showscale
+    )
+
+    # Adjust aspect ratio based on cube dimensions
+    shape = cube.shape
+    max_dim = max(shape)
+    fig.update_layout(
+        scene=dict(
+            xaxis=dict(range=[0, shape[2]], title='X'),
+            yaxis=dict(range=[0, shape[1]], title='Y'),
+            zaxis=dict(range=[0, shape[0]], title='Z'),
+            aspectratio=dict(
+                x=shape[2] / max_dim,
+                y=shape[1] / max_dim,
+                z=shape[0] / max_dim * z_stretch
+            )
+        ),
+        coloraxis=dict(
+            colorscale=colorscale,
+            cmin=vmin,
+            cmax=vmax,
+            colorbar=dict(title=cbar_label)
+        ),  # Define a shared color axis
+        title="",
+        showlegend=True
     )
 
     fig.update_scenes(zaxis_autorange="reversed")

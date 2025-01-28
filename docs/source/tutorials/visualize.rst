@@ -18,12 +18,12 @@ Point Cloud Rendering
 
     Point cloud rendering is computationally light and recommended for typical usage.
 
-To volume render the image cube efficiently using `render_point_cloud`:
+To volume render the image cube efficiently using :func:`render_point_cloud() <crispy.visualize.render_point_cloud>`:
 
 .. code-block:: python
 
     from crispy.visualize import render_point_cloud
-    fig = render_point_cloud(cube, showfig=True, bins=5)
+    fig = render_point_cloud(cube, showfig=True, bins=15, vmin=None)
 
 The result: an interactive 3D scatter plot with semi-transparent, color-coded points representing the volume
 structures in the cube image.
@@ -37,9 +37,21 @@ isosurfaces:
 .. code-block:: python
 
     from crispy.visualize import render_volume
-    fig = render_volume(cube, showfig=True, surface_count=10)
+    fig = render_volume(cube, showfig=True, surface_count=10, vmin=None)
 
 Result: a smooth 3D rendering of the data cube visualized with isosurfaces.
+
+.. tip::
+
+    **Minimum value**: to conserve computation strategically, use a ``vmin`` value similar to the ``thres`` value
+    used for ridge detection when visualising with
+    :func:`render_point_cloud() <crispy.visualize.render_point_cloud>` and
+    :func:`render_volume() <crispy.visualize.render_volume>` to render only the structures
+    that host ridges.
+
+    **Marker size**: depending on the size of image, adjust the ``size`` parameter in
+    :func:`render_point_cloud() <crispy.visualize.render_point_cloud>` as needed to improve the
+    appearance of the render.
 
 Visualizing Ridges
 --------------------------

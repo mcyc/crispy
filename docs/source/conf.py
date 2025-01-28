@@ -120,5 +120,4 @@ html_sidebars = {
     "quick_start": [],
     "installation": [],
     "guides": [],
-    "tutorials/index": [],
 }

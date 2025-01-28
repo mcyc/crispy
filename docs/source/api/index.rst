@@ -17,6 +17,7 @@ you can also search with the search bar located on the top right corner of the w
    crispy.image_ridge_find
    crispy.pruning
    crispy.scms
+   crispy.visualize
    
 
 .. list-table::
@@ -411,5 +412,46 @@ you can also search with the search bar located on the top right corner of the w
           .. container:: caption
 
              :mod:`crispy.scms`
+   
+   * - :obj:`~crispy.visualize.render_point_cloud`
+     - .. container:: sk-apisearch-desc
+
+          .. currentmodule:: crispy.visualize
+
+          .. autoshortsummary:: crispy.visualize.render_point_cloud
+
+          .. container:: caption
+
+             :mod:`crispy.visualize`
+   * - :obj:`~crispy.visualize.render_volume`
+     - .. container:: sk-apisearch-desc
+
+          .. currentmodule:: crispy.visualize
+
+          .. autoshortsummary:: crispy.visualize.render_volume
+
+          .. container:: caption
+
+             :mod:`crispy.visualize`
+   * - :obj:`~crispy.visualize.ridge_trace_3D`
+     - .. container:: sk-apisearch-desc
+
+          .. currentmodule:: crispy.visualize
+
+          .. autoshortsummary:: crispy.visualize.ridge_trace_3D
+
+          .. container:: caption
+
+             :mod:`crispy.visualize`
+   * - :obj:`~crispy.visualize.skel_volume`
+     - .. container:: sk-apisearch-desc
+
+          .. currentmodule:: crispy.visualize
+
+          .. autoshortsummary:: crispy.visualize.skel_volume
+
+          .. container:: caption
+
+             :mod:`crispy.visualize`
    
    

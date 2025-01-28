@@ -33,31 +33,30 @@ Instructions
         pip install -e .
 
 
-   To use a specific version using a tag, for example, v1.2.0, run the following after
+   To use a specific version using a tag, for example, v1.2.1, run the following after
    the initial install:
 
    .. code-block:: bash
 
-        git checkout v1.2.0
+        git checkout v1.2.1
         git pull
 
-   .. note::
-       If you encounter issues with pre-existing versions of dependencies or want to ensure
-       that the pinned versions of CRISPy's dependencies are installed, use the following command:
-
-       .. code-block:: bash
-
-           pip install --upgrade --force-reinstall --no-cache-dir -e .
-
-       This command ensures that all dependencies are freshly installed, replacing any older or conflicting versions.
-
 3. **Dependencies**:
-   CRISPy will automatically install its dependencies during installation. If any issues occur, install them manually:
+   CRISPy will automatically install its dependencies during installation.
+
+   If you encounter issues with pre-existing versions of dependencies or want to ensure
+   that the pinned versions of CRISPy's dependencies are installed, use the following command:
+
+   .. code-block:: bash
+
+       pip install --upgrade --force-reinstall --no-cache-dir -e .
+
+   The above command ensures that all dependencies are freshly installed, replacing any older or conflicting versions.
+   Alternatively, if any issues occur, install the dependencies manually:
 
    .. code-block:: bash
 
        pip install numpy scipy astropy joblib scikit-image scikit-learn
-
 
 Verification
 ~~~~~~~~~~~~~

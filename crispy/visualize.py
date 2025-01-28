@@ -50,7 +50,8 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=5, vmin=None, vm
     Examples
     --------
     >>> import numpy as np
-    >>> cube = np.random.random((100, 100, 100))
+    >>> X, Y, Z = np.mgrid[-1:1:30j, -1:1:30j, -1:1:30j]
+    >>> cube = np.sin(np.pi * X) * np.cos(np.pi * Z) * np.sin(np.pi * Y)
     >>> render_point_cloud(cube, showfig=True, bins=4)
     """
     # Flatten the array and remove NaN values
@@ -176,7 +177,7 @@ def ridge_trace_3D(x, y, z, size=2, color='darkred', opacity=0.5, name='ridge'):
     return trace
 
 
-def get_xyz(cube):
+def _get_xyz(cube):
     """
     Generate 3D coordinate grids for a data cube.
     """
@@ -280,7 +281,8 @@ def render_volume(cube, savename=None, showfig=False, isomin=None, isomax=None, 
     Examples
     --------
     >>> import numpy as np
-    >>> cube = np.random.random((50, 50, 50))
+    >>> X, Y, Z = np.mgrid[-1:1:30j, -1:1:30j, -1:1:30j]
+    >>> cube = np.sin(np.pi * X) * np.cos(np.pi * Z) * np.sin(np.pi * Y)
     >>> render_volume(cube, showfig=True, surface_count=10)
     """
     if isinstance(cube, str):
@@ -290,7 +292,7 @@ def render_volume(cube, savename=None, showfig=False, isomin=None, isomax=None, 
     # note: the visualization may not work if NaN values are present. Try replacing NaN with values like zeros.
     cube[np.isnan(cube)] = val_fill
 
-    X, Y, Z = get_xyz(cube)
+    X, Y, Z = _get_xyz(cube)
 
     if fig is None:
         fig = make_subplots(rows=1, cols=1)

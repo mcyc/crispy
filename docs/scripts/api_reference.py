@@ -84,4 +84,14 @@ API_REFERENCE = {
             {'name': 'wgauss_n_filtered_points_multiproc', 'type': 'function', 'description': '''Compute weighted Gaussian values for data points relative to walker positions.'''}
         ]
     },
+    'crispy.visualize': {
+        'module': 'crispy.visualize',
+        'description': '''Undocumented''',
+        'members': [
+            {'name': 'render_point_cloud', 'type': 'function', 'description': '''Render a 3D scatter plot from a 3D data cube with efficient visualization.'''},
+            {'name': 'render_volume', 'type': 'function', 'description': '''Render a 3D volume using layers of isosurfaces.'''},
+            {'name': 'ridge_trace_3D', 'type': 'function', 'description': '''Create a 3D scatter trace for visualizing ridge points.'''},
+            {'name': 'skel_volume', 'type': 'function', 'description': '''Render a 3D skeleton volume using isosurface visualization.'''}
+        ]
+    },
 }

@@ -8,9 +8,8 @@ Eager to start using **CRISPy**? See :doc:`Quick Start <quick_start>` to begin.
 Statistical Methods
 -------------------
 
-**CRISPy** software's specific methodology, its implementation, and its application
+**CRISPy**'s underlying methodology, its implementation, and its application
 on 3D astrophysical images are described in:
-
 
     - Chen, M. C.-Y., et al. "Velocity-Coherent Filaments in NGC 1333: Evidence for Accretion Flow?"
       ApJ (`2020 <https://ui.adsabs.harvard.edu/abs/2020ApJ...891...84C/abstract>`_).

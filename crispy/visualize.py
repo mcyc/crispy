@@ -4,38 +4,54 @@ from astropy.stats import median_absolute_deviation as mads
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
-
 def render_point_cloud(cube, savename=None, showfig=False, bins=5, vmin=None, vmax=None,
                        cmap="magma_r", z_stretch=1, fig=None, cbar_label=""):
     """
-    Creates a 3D scatter plot of values in a 3D ndarray with coloring based on values and
-    opacity determined by percentile bins. A single colorscale spans all bins.
+    Render a 3D scatter plot from a 3D data cube with efficient visualization.
+
+    The function generates a 3D point cloud visualization from a 3D numpy array,
+    coloring the points based on their values and assigning opacity based on percentile bins.
+    A single colorscale spans all bins.
 
     Parameters
     ----------
-    cube : ndarray
-        A 3D numpy array of float values. NaN values will be ignored.
+    cube : numpy.ndarray
+        A 3D numpy array of float values to visualize. NaN values are ignored.
     savename : str, optional
-        The saving path for the interactive HTML file.
+        Path to save the interactive HTML file. If None, the figure is not saved. Default is None.
     showfig : bool, optional
-        Specify whether to show the figure.
+        Whether to display the figure interactively. Default is False.
     bins : int, optional
-        The number of percentile bins to divide the data into. Default is 5.
+        Number of percentile bins for dividing the data. Default is 5.
     vmin : float, optional
-        Minimum value for normalization. If None, the 10th percentile is used.
+        Minimum value for normalization. If None, the 10th percentile of the data is used. Default is None.
     vmax : float, optional
-        Maximum value for normalization. If None, the 99th percentile is used.
+        Maximum value for normalization. If None, the 99th percentile of the data is used. Default is None.
     cmap : str, optional
-        Colormap for data points. Default is "magma_r".
+        Colormap for the data points. Uses Plotly-compatible colormap names. Default is "magma_r".
     z_stretch : float, optional
-        Scaling factor for the Z-axis. Default is 1.
+        Scaling factor for the Z-axis to modify aspect ratio. Default is 1.
     fig : plotly.graph_objects.Figure, optional
-        The Plotly figure object to add the scatter plot to. If None, a new figure will be created.
+        Existing Plotly figure to add the scatter plot to. If None, a new figure is created. Default is None.
+    cbar_label : str, optional
+        Label for the colorbar. Default is an empty string.
 
     Returns
     -------
-    fig : plotly.graph_objects.Figure
-        The Plotly figure object representing the 3D scatter plot.
+    plotly.graph_objects.Figure
+        The Plotly figure object containing the 3D scatter plot.
+
+    Notes
+    -----
+    - Points outside the range [vmin, vmax] are excluded.
+    - Percentile bins determine point opacity for better depth visualization.
+    - A shared color axis is used for consistency across bins.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> cube = np.random.random((100, 100, 100))
+    >>> render_point_cloud(cube, showfig=True, bins=4)
     """
     # Flatten the array and remove NaN values
     valid_values = cube[np.isfinite(cube)].flatten()
@@ -122,8 +138,28 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=5, vmin=None, vm
     return fig
 
 
-def ridge_trace(x, y, z, size=2, color='darkred', opacity=0.5, name='ridge'):
-    # a wrapper to provide a trace to plot ridge in 3D based on its coordinates
+def ridge_trace_3D(x, y, z, size=2, color='darkred', opacity=0.5, name='ridge'):
+    """
+    Create a 3D scatter trace for visualizing ridge points.
+
+    Parameters
+    ----------
+    x, y, z : array-like
+        Coordinates of the ridge points in 3D space.
+    size : int, optional
+        Marker size. Default is 2.
+    color : str, optional
+        Marker color. Default is "darkred".
+    opacity : float, optional
+        Opacity of the markers. Default is 0.5.
+    name : str, optional
+        Name for the trace. Default is "ridge".
+
+    Returns
+    -------
+    plotly.graph_objects.Scatter3d
+        A Plotly 3D scatter trace.
+    """
     trace = go.Scatter3d(
         x=x,
         y=y,
@@ -141,15 +177,54 @@ def ridge_trace(x, y, z, size=2, color='darkred', opacity=0.5, name='ridge'):
 
 
 def get_xyz(cube):
+    """
+    Generate 3D coordinate grids for a data cube.
+    """
     im = cube
     nx, ny, nz = im.shape[2], im.shape[1], im.shape[0]
-    Z, Y, X = np.meshgrid(np.arange(0, nz, 1), np.arange(0, ny, 1), np.arange(0, nx, 1), indexing='ij')
-    return X, Y, Z
+    z, y, x = np.meshgrid(np.arange(0, nz, 1), np.arange(0, ny, 1), np.arange(0, nx, 1), indexing='ij')
+    return x, y, z
 
 
 def skel_volume(image, savename=None, showfig=True, opacity=0.7, colorscale='inferno', fig=None):
-    # specialized version that only volume renders skeletons and spines
+    """
+    Render a 3D skeleton volume using isosurface visualization.
 
+    This function provides a specialized version of `render_volume()` for visualizing skeleton-like structures
+    or spines in 3D datasets. It simplifies the parameterization for this specific use case.
+
+    Parameters
+    ----------
+    image : numpy.ndarray
+        A 3D binary or float array representing the skeleton structure. If the data type is boolean, it
+        will be converted to an integer array for visualization.
+    savename : str, optional
+        Path to save the interactive HTML file. If None, the figure is not saved. Default is None.
+    showfig : bool, optional
+        Whether to display the figure interactively. Default is True.
+    opacity : float, optional
+        Opacity of the skeleton isosurfaces. Default is 0.7.
+    colorscale : str, optional
+        Colormap for the isosurfaces. Uses Plotly-compatible colormap names. Default is "inferno".
+    fig : plotly.graph_objects.Figure, optional
+        Existing Plotly figure to add the volume rendering to. If None, a new figure is created. Default is None.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        The Plotly figure object containing the 3D skeleton volume rendering.
+
+    Notes
+    -----
+    - This function is a wrapper around `render_volume()` with preset parameters tailored for skeleton visualization.
+    - If `image` contains NaN values, they will be handled by `render_volume()`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> image = np.random.random((50, 50, 50)) > 0.95  # Generate a random binary skeleton
+    >>> skel_volume(image, showfig=True, opacity=0.5)
+    """
     if isinstance(image, bool):
         image = image.astype(np.uint8)
 
@@ -157,39 +232,57 @@ def skel_volume(image, savename=None, showfig=True, opacity=0.7, colorscale='inf
                          opacity=opacity, colorscale=colorscale, showscale=False, fig=fig)
 
 
-def render_volume(cube, savename=None, showfig=False, isomin=None, isomax=None, surface_count=21, opacity=None,
-                  colorscale='YlGnBu', showscale=True, fig=None, val_fill=0.0):
-    '''
-    3D volume rendering using layers of isosurfaces.
+def render_volume(cube, savename=None, showfig=False, isomin=None, isomax=None, surface_count=21,
+                  opacity=None, colorscale='YlGnBu', showscale=True, fig=None, val_fill=0.0):
+    """
+    Render a 3D volume using layers of isosurfaces.
 
-    :param cube:
-        <ndarray or str> the cube to be volume rendered
-    :param savename:
-        <str> the saving path for the interactive HTML file
-    :param showfig:
-        <boolean> specify whether or not to show the figure
-    :param isomin:
-        <float> the maximum value of the isosurface. Default is the 99.99 percentile of the cube.
-    :param isomax:
-        <float> the minimum value of the isosurface. Default is the 10-sigma value of the estimated rms level.
-    :param surface_count:
-        <int> number of isosurfaces to plot. 20 is usually a good number for higher quality visulation. Default is 3
-        to make the rendering more effecient.
-    :param opacity:
-        <float> the opacity of the isosurfaces. This value needs to be small enough to see through all the surfaces.
-         The default value is 2 divided by then umber of isosurfaces.
-    :param colorscale:
-        <str> color map of the isosurfaces, using matplotlib's colormap
-    :param fig:
-        <plotly's Figure object> the figure for which the 3d scatter will be ploted on. If None, a new figure will be generated.
-    :param val_fill:
-        <float> The value to replace nan-voxels with. Default is 0. Note that the volume rendering may not work if the cube
-         contains nan vlaues
+    This function creates a 3D interactive volume rendering visualization of a 3D data cube
+    by plotting multiple isosurfaces at specified value intervals.
 
-    :return fig:
-        a plotly figure object
-    '''
+    Parameters
+    ----------
+    cube : numpy.ndarray or str
+        A 3D numpy array of float values or a file path to a FITS file. If the input is a file path,
+        the data will be loaded and used. NaN values are replaced with `val_fill` before rendering.
+    savename : str, optional
+        Path to save the interactive HTML file. If None, the figure is not saved. Default is None.
+    showfig : bool, optional
+        Whether to display the figure interactively. Default is False.
+    isomin : float, optional
+        Minimum isosurface value. If None, the 10-sigma level above the estimated RMS is used. Default is None.
+    isomax : float, optional
+        Maximum isosurface value. If None, the 99.99th percentile of the data is used. Default is None.
+    surface_count : int, optional
+        Number of isosurfaces to plot. Higher values create finer visualization but increase rendering cost. Default is 21.
+    opacity : float, optional
+        Opacity of the isosurfaces. If None, it is set to `2 / surface_count` for semi-transparency. Default is None.
+    colorscale : str, optional
+        Colormap for the isosurfaces. Uses Plotly-compatible colormap names. Default is "YlGnBu".
+    showscale : bool, optional
+        Whether to display the color scale bar. Default is True.
+    fig : plotly.graph_objects.Figure, optional
+        Existing Plotly figure to add the volume rendering to. If None, a new figure is created. Default is None.
+    val_fill : float, optional
+        Value to replace NaN voxels in the cube. Default is 0.0.
 
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        The Plotly figure object containing the 3D volume rendering.
+
+    Notes
+    -----
+    - NaN values in the cube are replaced with `val_fill` before visualization.
+    - Isosurface values range between `isomin` and `isomax`, divided into `surface_count` levels.
+    - The visualization requires non-NaN input data for accurate results.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> cube = np.random.random((50, 50, 50))
+    >>> render_volume(cube, showfig=True, surface_count=10)
+    """
     if isinstance(cube, str):
         cube, hdr = fits.getdata(cube, header=True)
         cube = cube.copy()

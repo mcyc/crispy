@@ -56,6 +56,9 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=15, vmin=None, v
     >>> cube = np.sin(np.pi * X) * np.cos(np.pi * Z) * np.sin(np.pi * Y)
     >>> render_point_cloud(cube, showfig=True, bins=4)
     """
+    # ensures plotly-compatible endianness
+    cube = _ensure_endianness(cube)
+
     # Flatten the array and remove NaN values
     valid_values = cube[np.isfinite(cube)].flatten()
 
@@ -71,6 +74,11 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=15, vmin=None, v
     mask = np.isfinite(cube) & (cube >= vmin) & (cube <= vmax)
     masked_values = cube[mask]
     z, y, x = np.where(mask)
+
+    # ensures plotly-compatible endianness
+    x = _ensure_endianness(x)
+    y = _ensure_endianness(y)
+    z = _ensure_endianness(z)
 
     # Compute percentiles and opacity levels
     percentiles = np.linspace(0, 100, bins + 1)
@@ -165,6 +173,11 @@ def ridge_trace_3D(x, y, z, size=2, color='black', opacity=0.5, name='ridge'):
     plotly.graph_objects.Scatter3d
         A Plotly 3D scatter trace.
     """
+    # ensures plotly-compatible endianness
+    x = _ensure_endianness(x)
+    y = _ensure_endianness(y)
+    z = _ensure_endianness(z)
+
     trace = go.Scatter3d(
         x=x,
         y=y,
@@ -188,6 +201,11 @@ def _get_xyz(cube):
     im = cube
     nx, ny, nz = im.shape[2], im.shape[1], im.shape[0]
     z, y, x = np.meshgrid(np.arange(0, nz, 1), np.arange(0, ny, 1), np.arange(0, nx, 1), indexing='ij')
+
+    # ensures plotly-compatible endianness
+    x = _ensure_endianness(x)
+    y = _ensure_endianness(y)
+    z = _ensure_endianness(z)
     return x, y, z
 
 
@@ -237,6 +255,9 @@ def skel_volume(image, savename=None, showfig=True, opacity=0.75, colorscale='in
     """
     if isinstance(image, bool):
         image = image.astype(np.uint8)
+
+    # ensures plotly-compatible endianness
+    image = _ensure_endianness(image)
 
     return render_volume(image, savename=savename, showfig=showfig, isomin=1e-3, isomax=1e-2, surface_count=1,
                          opacity=opacity, colorscale=colorscale, showscale=False, fig=fig, z_stretch=z_stretch,
@@ -307,7 +328,10 @@ def render_volume(cube, savename=None, showfig=False, vmin=None, vmax=None, surf
     # note: the visualization may not work if NaN values are present. Try replacing NaN with values like zeros.
     cube[np.isnan(cube)] = val_fill
 
-    X, Y, Z = _get_xyz(cube)
+    X, Y, Z = _get_xyz(cube) # x,y,z endianess already checked
+
+    # ensures plotly-compatible endianness
+    cube = _ensure_endianness(cube)
 
     if fig is None:
         fig = make_subplots(rows=1, cols=1)
@@ -376,3 +400,7 @@ def render_volume(cube, savename=None, showfig=False, vmin=None, vmax=None, surf
         fig.show()
 
     return fig
+
+
+def _ensure_endianness(data):
+    return np.ascontiguousarray(data, dtype=data.dtype.newbyteorder('='))

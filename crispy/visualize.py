@@ -261,7 +261,7 @@ def skel_volume(image, savename=None, showfig=True, opacity=0.75, colorscale='in
 
     return render_volume(image, savename=savename, showfig=showfig, vmin=1e-3, vmax=1e-2, surface_count=1,
                          opacity=opacity, colorscale=colorscale, showscale=False, fig=fig, z_stretch=z_stretch,
-                         cbar_labe=cbar_label)
+                         cbar_label=cbar_label)
 
 
 def render_volume(cube, savename=None, showfig=False, vmin=None, vmax=None, surface_count=16,

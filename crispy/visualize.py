@@ -155,7 +155,7 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=15, vmin=None, v
     return fig
 
 
-def ridge_trace_3D(x, y, z, size=2, color='black', opacity=0.5, name='ridges'):
+def ridge_trace_3D(x, y, z, size=2.5, color='black', opacity=0.5, name='ridges'):
     """
     Create a 3D scatter trace for visualizing ridge points.
 
@@ -194,7 +194,7 @@ def ridge_trace_3D(x, y, z, size=2, color='black', opacity=0.5, name='ridges'):
     return trace
 
 
-def mask_trace_3D(mask3D, size=2, color='black', opacity=0.9, name='spines'):
+def mask_trace_3D(mask3D, size=2.5, color='black', opacity=0.9, name='spines'):
     """
     Generate a 3D scatter plot of True-valued positions in a 3D boolean array.
 

@@ -99,7 +99,7 @@ trace and plot their coordinates with a 3D scatter plot over the previously rend
 .. code-block:: python
 
     from crispy.visualize import mask_trace_3D
-    trace mask_trace_3D(skeleton, showfig=True, opacity=0.5)
+    trace = mask_trace_3D(skeleton, size=2.5, opacity=0.9)
     fig.add_trace(trace)
     fig.show()
 

@@ -259,7 +259,7 @@ def skel_volume(image, savename=None, showfig=True, opacity=0.75, colorscale='in
     # ensures plotly-compatible endianness
     image = _ensure_endianness(image)
 
-    return render_volume(image, savename=savename, showfig=showfig, isomin=1e-3, isomax=1e-2, surface_count=1,
+    return render_volume(image, savename=savename, showfig=showfig, vmin=1e-3, vmax=1e-2, surface_count=1,
                          opacity=opacity, colorscale=colorscale, showscale=False, fig=fig, z_stretch=z_stretch,
                          cbar_labe=cbar_label)
 

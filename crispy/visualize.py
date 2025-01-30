@@ -5,7 +5,8 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 def render_point_cloud(cube, savename=None, showfig=False, bins=15, vmin=None, vmax=None,
-                       cmap="magma_r", z_stretch=1, size=3, fig=None, cbar_label=""):
+                       cmap="magma_r", z_stretch=1, size=3, fig=None, cbar_label="",
+                       min_opacity=0.01, max_opacity=0.3):
     """
     Render a 3D scatter plot from a 3D data cube with efficient visualization.
 
@@ -37,7 +38,10 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=15, vmin=None, v
         Existing Plotly figure to add the scatter plot to. If None, a new figure is created. Default is None.
     cbar_label : str, optional
         Label for the colorbar. Default is an empty string.
-
+    min_opacity : float, optional
+        Minimum value of the marker opacity. Default is 0.01
+    max_opacity : float, optional
+        Maximum value of the marker opacity. Default is 0.3
     Returns
     -------
     plotly.graph_objects.Figure
@@ -83,7 +87,7 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=15, vmin=None, v
     # Compute percentiles and opacity levels
     percentiles = np.linspace(0, 100, bins + 1)
     cutoffs = np.percentile(masked_values, percentiles)
-    opacity_levels = np.linspace(0.01, 0.3, bins)
+    opacity_levels = np.linspace(min_opacity, max_opacity, bins)
 
     # Use provided figure or create a new one
     if fig is None:

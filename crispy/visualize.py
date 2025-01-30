@@ -5,7 +5,8 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 def render_point_cloud(cube, savename=None, showfig=False, bins=15, vmin=None, vmax=None,
-                       cmap="magma_r", z_stretch=1, size=3, fig=None, cbar_label=""):
+                       cmap="magma_r", z_stretch=1, size=2, fig=None, cbar_label="",
+                       min_opacity=0.01, max_opacity=0.3):
     """
     Render a 3D scatter plot from a 3D data cube with efficient visualization.
 
@@ -22,7 +23,7 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=15, vmin=None, v
     showfig : bool, optional
         Whether to display the figure interactively. Default is False.
     bins : int, optional
-        Number of percentile bins for dividing the data. Default is 5.
+        Number of percentile bins for dividing the data. Default is 15.
     vmin : float, optional
         Minimum value for normalization. If None, the 10th percentile of the data is used. Default is None.
     vmax : float, optional
@@ -37,7 +38,10 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=15, vmin=None, v
         Existing Plotly figure to add the scatter plot to. If None, a new figure is created. Default is None.
     cbar_label : str, optional
         Label for the colorbar. Default is an empty string.
-
+    min_opacity : float, optional
+        Minimum value of the marker opacity. Default is 0.01
+    max_opacity : float, optional
+        Maximum value of the marker opacity. Default is 0.3
     Returns
     -------
     plotly.graph_objects.Figure
@@ -56,6 +60,9 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=15, vmin=None, v
     >>> cube = np.sin(np.pi * X) * np.cos(np.pi * Z) * np.sin(np.pi * Y)
     >>> render_point_cloud(cube, showfig=True, bins=4)
     """
+    # ensures plotly-compatible endianness
+    cube = _ensure_endianness(cube)
+
     # Flatten the array and remove NaN values
     valid_values = cube[np.isfinite(cube)].flatten()
 
@@ -72,10 +79,15 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=15, vmin=None, v
     masked_values = cube[mask]
     z, y, x = np.where(mask)
 
+    # ensures plotly-compatible endianness
+    x = _ensure_endianness(x)
+    y = _ensure_endianness(y)
+    z = _ensure_endianness(z)
+
     # Compute percentiles and opacity levels
     percentiles = np.linspace(0, 100, bins + 1)
     cutoffs = np.percentile(masked_values, percentiles)
-    opacity_levels = np.linspace(0.01, 0.3, bins)
+    opacity_levels = np.linspace(min_opacity, max_opacity, bins)
 
     # Use provided figure or create a new one
     if fig is None:
@@ -143,7 +155,7 @@ def render_point_cloud(cube, savename=None, showfig=False, bins=15, vmin=None, v
     return fig
 
 
-def ridge_trace_3D(x, y, z, size=2, color='black', opacity=0.5, name='ridge'):
+def ridge_trace_3D(x, y, z, size=2.5, color='black', opacity=0.5, name='ridges'):
     """
     Create a 3D scatter trace for visualizing ridge points.
 
@@ -154,7 +166,7 @@ def ridge_trace_3D(x, y, z, size=2, color='black', opacity=0.5, name='ridge'):
     size : int, optional
         Marker size. Default is 2.
     color : str, optional
-        Marker color. Default is "darkred".
+        Marker color. Default is "black".
     opacity : float, optional
         Opacity of the markers. Default is 0.5.
     name : str, optional
@@ -165,10 +177,11 @@ def ridge_trace_3D(x, y, z, size=2, color='black', opacity=0.5, name='ridge'):
     plotly.graph_objects.Scatter3d
         A Plotly 3D scatter trace.
     """
+    # create trace, with plotly-compatible endianness ensured
     trace = go.Scatter3d(
-        x=x,
-        y=y,
-        z=z,
+        x=_ensure_endianness(x),
+        y=_ensure_endianness(y),
+        z=_ensure_endianness(z),
         mode='markers',
         marker=dict(
             size=size,  # Marker size
@@ -181,6 +194,50 @@ def ridge_trace_3D(x, y, z, size=2, color='black', opacity=0.5, name='ridge'):
     return trace
 
 
+def mask_trace_3D(mask3D, size=2.5, color='black', opacity=0.9, name='spines'):
+    """
+    Generate a 3D scatter plot of True-valued positions in a 3D boolean array.
+
+    Parameters
+    ----------
+    mask3D : numpy.ndarray
+        A 3D boolean numpy array where True values indicate points to be plotted.
+    size : int, optional
+        Size of the scatter plot markers. Default is 2.
+    color : str, optional
+        Color of the markers. Default is "black".
+    opacity : float, optional
+        Opacity of the markers, ranging from 0 (transparent) to 1 (opaque). Default is 0.9.
+    name : str, optional
+        Label for the trace in the Plotly legend. Default is "spines".
+
+    Returns
+    -------
+    plotly.graph_objects.Scatter3d
+        A Plotly 3D scatter trace representing the masked points.
+    """
+    # Find the indices of True values in the 3D array
+    z, y, x = np.where(mask3D)
+
+    # Create a scatter plot, ensures plotly-compatible endianness
+    trace = go.Scatter3d(
+        x=_ensure_endianness(x),  # x-coordinates
+        y=_ensure_endianness(y),  # y-coordinates
+        z=_ensure_endianness(z),  # z-coordinates
+        mode='markers',
+        marker=dict(
+            size=size,  # Size of the markers
+            color=color,  # Color of the markers
+            symbol='circle',
+            opacity=opacity
+        ),
+        name=name,
+        showlegend = False
+    )
+
+    return trace
+
+
 def _get_xyz(cube):
     """
     Generate 3D coordinate grids for a data cube.
@@ -188,6 +245,11 @@ def _get_xyz(cube):
     im = cube
     nx, ny, nz = im.shape[2], im.shape[1], im.shape[0]
     z, y, x = np.meshgrid(np.arange(0, nz, 1), np.arange(0, ny, 1), np.arange(0, nx, 1), indexing='ij')
+
+    # ensures plotly-compatible endianness
+    x = _ensure_endianness(x)
+    y = _ensure_endianness(y)
+    z = _ensure_endianness(z)
     return x, y, z
 
 
@@ -209,7 +271,7 @@ def skel_volume(image, savename=None, showfig=True, opacity=0.75, colorscale='in
     showfig : bool, optional
         Whether to display the figure interactively. Default is True.
     opacity : float, optional
-        Opacity of the skeleton isosurfaces. Default is 0.7.
+        Opacity of the skeleton isosurfaces. Default is 0.75.
     colorscale : str, optional
         Colormap for the isosurfaces. Uses Plotly-compatible colormap names. Default is "inferno".
     fig : plotly.graph_objects.Figure, optional
@@ -238,12 +300,15 @@ def skel_volume(image, savename=None, showfig=True, opacity=0.75, colorscale='in
     if isinstance(image, bool):
         image = image.astype(np.uint8)
 
-    return render_volume(image, savename=savename, showfig=showfig, isomin=1e-3, isomax=1e-2, surface_count=1,
+    # ensures plotly-compatible endianness
+    image = _ensure_endianness(image)
+
+    return render_volume(image, savename=savename, showfig=showfig, vmin=1e-3, vmax=1e-2, surface_count=1,
                          opacity=opacity, colorscale=colorscale, showscale=False, fig=fig, z_stretch=z_stretch,
-                         cbar_labe=cbar_label)
+                         cbar_label=cbar_label)
 
 
-def render_volume(cube, savename=None, showfig=False, vmin=None, vmax=None, surface_count=16,
+def render_volume(cube, savename=None, showfig=False, vmin=None, vmax=None, surface_count=12,
                   opacity=None, colorscale='YlGnBu', z_stretch=1, showscale=True, fig=None,
                   val_fill=0.0, cbar_label=''):
     """
@@ -266,7 +331,7 @@ def render_volume(cube, savename=None, showfig=False, vmin=None, vmax=None, surf
     vmax : float, optional
         Maximum isosurface value. If None, the 99.99th percentile of the data is used. Default is None.
     surface_count : int, optional
-        Number of isosurfaces to plot. Higher values create finer visualization but increase rendering cost. Default is 21.
+        Number of isosurfaces to plot. Higher values create finer visualization but increase rendering cost. Default is 12.
     opacity : float, optional
         Opacity of the isosurfaces. If None, it is set to `2 / surface_count` for semi-transparency. Default is None.
     colorscale : str, optional
@@ -307,7 +372,10 @@ def render_volume(cube, savename=None, showfig=False, vmin=None, vmax=None, surf
     # note: the visualization may not work if NaN values are present. Try replacing NaN with values like zeros.
     cube[np.isnan(cube)] = val_fill
 
-    X, Y, Z = _get_xyz(cube)
+    X, Y, Z = _get_xyz(cube) # x,y,z endianess already checked
+
+    # ensures plotly-compatible endianness
+    cube = _ensure_endianness(cube)
 
     if fig is None:
         fig = make_subplots(rows=1, cols=1)
@@ -376,3 +444,7 @@ def render_volume(cube, savename=None, showfig=False, vmin=None, vmax=None, surf
         fig.show()
 
     return fig
+
+
+def _ensure_endianness(data):
+    return np.ascontiguousarray(data, dtype=data.dtype.newbyteorder('='))

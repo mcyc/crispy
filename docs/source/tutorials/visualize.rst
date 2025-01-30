@@ -92,13 +92,24 @@ or as a standalone plot:
 Gridded Skeletons
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To plot ridges that has already been gridded back to the image space (i.e., skeletons), use
-:func:`skel_volume() <crispy.visualize.skel_volume>` as:
+To plot ridges that has already been gridded back to the image space (i.e., skeletons) or their pruned
+counterparts (i.e., spines), use either :func:`mask_trace_3D() <crispy.visualize.mask_trace_3D>` to create a
+trace and plot their coordinates with a 3D scatter plot over the previously rendered structures as:
+
+.. code-block:: python
+
+    from crispy.visualize import mask_trace_3D
+    trace mask_trace_3D(skeleton, showfig=True, opacity=0.5)
+    fig.add_trace(trace)
+    fig.show()
+
+or :func:`skel_volume() <crispy.visualize.skel_volume>` to plot them as isosurface volumes using the
+following:
 
 .. code-block:: python
 
     from crispy.visualize import skel_volume
-    skel_volume(skeleton, showfig=True, opacity=0.5)
+    fig = skel_volume(skeleton, showfig=True, opacity=0.5, fig=fig)
 
 Saving Plots
 --------------------------

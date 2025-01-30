@@ -88,6 +88,7 @@ API_REFERENCE = {
         'module': 'crispy.visualize',
         'description': '''Undocumented''',
         'members': [
+            {'name': 'mask_trace_3D', 'type': 'function', 'description': '''Generate a 3D scatter plot of True-valued positions in a 3D boolean array.'''},
             {'name': 'render_point_cloud', 'type': 'function', 'description': '''Render a 3D scatter plot from a 3D data cube with efficient visualization.'''},
             {'name': 'render_volume', 'type': 'function', 'description': '''Render a 3D volume using layers of isosurfaces.'''},
             {'name': 'ridge_trace_3D', 'type': 'function', 'description': '''Create a 3D scatter trace for visualizing ridge points.'''},

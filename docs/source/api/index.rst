@@ -413,6 +413,16 @@ you can also search with the search bar located on the top right corner of the w
 
              :mod:`crispy.scms`
    
+   * - :obj:`~crispy.visualize.mask_trace_3D`
+     - .. container:: sk-apisearch-desc
+
+          .. currentmodule:: crispy.visualize
+
+          .. autoshortsummary:: crispy.visualize.mask_trace_3D
+
+          .. container:: caption
+
+             :mod:`crispy.visualize`
    * - :obj:`~crispy.visualize.render_point_cloud`
      - .. container:: sk-apisearch-desc
 

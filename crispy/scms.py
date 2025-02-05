@@ -12,6 +12,8 @@ import time
 import sys
 import gc
 
+from sklearn.neighbors import KDTree
+
 #======================================================================================================================#
 
 def find_ridge(X, G, D=3, h=1, d=1, eps=1e-2, maxT=1000, weights=None, converge_frac=99, ncpu=None,
@@ -223,8 +225,66 @@ def chunk_data(ncpu, data_list, data_size):
         chunks += ([data[i:i + chunk_size] for i in range(0, data_size, chunk_size)],)
     return chunks
 
-
 def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None):
+    """
+    Optimized: Uses a fully `query_radius()`-based approach with multi-processing.
+
+    - Uses `query_radius()` to find only relevant neighbors within `f_h * h`.
+    - Multi-processing (`joblib.Parallel`) is used to speed up queries.
+    - Avoids manual filtering since `query_radius()` already applies the distance cutoff.
+    """
+
+    if ncpu is None:
+        ncpu = cpu_count()
+
+    # Convert to float32 for efficiency (copy=False avoids memory duplication)
+    X = X.astype(np.float32, copy=False).squeeze(-1)  # Shape (n, D)
+    G = G.astype(np.float32, copy=False).squeeze(-1)  # Shape (m, D)
+    weights = weights.astype(np.float32, copy=False)
+
+    h = np.float32(h)
+    f_h = np.float32(f_h)
+
+    # **Build a KD-Tree**
+    tree = KDTree(X, leaf_size=40)
+
+    # **Parallel `query_radius()` execution**
+    def query_radius_chunk(G_chunk):
+        return tree.query_radius(G_chunk, r=f_h * h)
+
+    chunk_size = max(1, len(G) // ncpu)  # Divide walkers into `ncpu` chunks
+    G_chunks = [G[i: i + chunk_size] for i in range(0, len(G), chunk_size)]
+
+    results = Parallel(n_jobs=ncpu)(
+        delayed(query_radius_chunk)(G_chunk) for G_chunk in G_chunks
+    )
+
+    # **Flatten results safely**
+    neighbor_indices = [idx for sublist in results for idx in sublist]
+    valid_neighbors = [idx for idx in neighbor_indices if len(idx) > 0]
+
+    if len(valid_neighbors) == 0:  # If no neighbors were found for any walker
+        return np.empty((0, X.shape[1], 1)), np.empty((0,)), np.empty((0,)), np.empty((0,))
+
+    unique_indices = np.unique(np.hstack(valid_neighbors))
+
+    # **Extract only the relevant points**
+    X_filtered = X[unique_indices]
+    weights_filtered = weights[unique_indices]
+
+    # **Compute Gaussian kernel values (vectorized)**
+    diff = X_filtered[None, :, :] - G[:, None, :]  # Shape (m, k, D)
+    dist = np.linalg.norm(diff, axis=-1)  # Shape (m, k)
+
+    inv_cov = 1 / (h ** 2)
+    exponent = -0.5 * np.sum(diff**2 * inv_cov, axis=-1)  # Shape (m, k)
+    c = np.exp(exponent) * weights_filtered  # Apply weights
+
+    return X_filtered[:, :, None], c, weights_filtered, dist
+
+
+
+def wgauss_n_filtered_points_multiproc_npvec(X, G, h, weights, f_h, ncpu=None):
     """
     Compute weighted Gaussian values for data points relative to walker positions
     in parallel, filtering out distant points to optimize computation.

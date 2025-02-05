@@ -10,98 +10,36 @@ import numpy as np
 from joblib import Parallel, delayed, cpu_count
 import time
 import sys
+import gc
 
 #======================================================================================================================#
 
-def find_ridge(X, G, D=3, h=1, d=1, eps=1e-6, maxT=1000, weights=None, converge_frac=99, ncpu=None,
+def find_ridge(X, G, D=3, h=1, d=1, eps=1e-2, maxT=1000, weights=None, converge_frac=99, ncpu=None,
                return_unconverged=True, f_h=5):
     """
     Identify density ridges in data using the Subspace Constrained Mean Shift (SCMS) algorithm.
 
-    This function iteratively shifts walkers towards the density ridges of the input data by computing
-    local density estimates and projecting onto the subspace of interest.
-
-    Parameters
-    ----------
-    X : ndarray
-        Coordinates of the data points, shape (n, D, 1).
-
-    G : ndarray
-        Initial coordinates of the walkers, shape (m, D, 1).
-
-    D : int, optional, default=3
-        Dimensionality of the data points.
-
-    h : float, optional, default=1
-        Smoothing bandwidth for the Gaussian kernel.
-
-    d : int, optional, default=1
-        Number of dimensions to retain in the ridge subspace.
-
-    eps : float, optional, default=1e-6
-        Convergence criterion. The maximum allowable error for a walker to be considered converged.
-
-    maxT : int, optional, default=1000
-        Maximum number of iterations.
-
-    weights : ndarray, optional
-        Weights for the data points. If `None`, all points are equally weighted.
-
-    converge_frac : float, optional, default=99
-        Fraction of walkers that must converge to terminate the algorithm, expressed as a percentage.
-
-    ncpu : int, optional
-        Number of CPUs to use for parallel processing. Defaults to the number of available CPUs.
-
-    return_unconverged : bool, optional, default=True
-        If True, returns both converged and unconverged walkers. Otherwise, only converged walkers are returned.
-
-    f_h : float, optional, default=5
-        Factor for filtering data points based on their distance to walkers. Points farther than `f_h * h`
-        are excluded to reduce computational overhead.
-
-    Returns
-    -------
-    G_converged : ndarray
-        Coordinates of the converged walkers.
-
-    G_unconverged : ndarray, optional
-        Coordinates of unconverged walkers, returned only if `return_unconverged=True`.
-
-    Notes
-    -----
-    - The algorithm stops when either the fraction of converged walkers meets `converge_frac`
-      or the maximum number of iterations (`maxT`) is reached.
-    - The SCMS algorithm leverages Gaussian kernels to compute local density estimates and iteratively
-      shifts walkers toward regions of high density.
-
-    Examples
-    --------
-    Find ridges in a dataset with 3D coordinates:
-
-    >>> import numpy as np
-    >>> from crispy import scms
-    >>> data = np.random.random((100, 3, 1))  # Random 3D data
-    >>> walkers = np.random.random((20, 3, 1))  # Random walker positions
-    >>> ridges, unconverged = scms.find_ridge(data, walkers, h=0.5, maxT=500)
+    Optimized for:
+    - Memory efficiency: Avoid unnecessary copies of large arrays.
+    - Computational efficiency: Reduce redundant operations in loops.
+    - Parallelism: Efficient chunking and multiprocessing.
     """
-    # Convert data to float32 for efficiency
-    G = G.astype(np.float32)
-    X = X.astype(np.float32)
+
+    # Convert data to float32 efficiently (avoid unnecessary copying)
+    G = G.astype(np.float32, copy=False)
+    X = X.astype(np.float32, copy=False)
     h = np.float32(h)
     eps = np.float32(eps)
 
-    if weights is None:
-        weights = np.float32(1)
-    else:
-        weights = weights.astype(np.float32)
+    # Handle weights efficiently
+    weights = np.full(len(X), 1.0, dtype=np.float32) if weights is None else weights.astype(np.float32, copy=False)
     converge_frac = np.float32(converge_frac)
 
-    n = len(X)
-    m = len(G)
+    n, m = len(X), len(G)
     t = 0
 
-    error = np.full(m, 1e+08, dtype=np.float32)
+    # Preallocate error array (initialize to a large value)
+    error = np.full(m, eps*1e2, dtype=np.float32)
 
     print("==========================================================================")
     print(f"Starting the run. Number of data points: {n}, Number of walkers: {m}")
@@ -111,46 +49,53 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-6, maxT=1000, weights=None, converge_
     start_time = time.time()
     last_print_time = start_time
 
-    pct_error = np.percentile(error, converge_frac)
+    # Get CPU count
     ncpu = cpu_count() if ncpu is None else ncpu
 
-    while ((pct_error > eps) & (t < maxT)):
-        # Loop through iterations
+    # Compute initial convergence fraction
+    pct_error = np.percentile(error, converge_frac)
+
+    while pct_error > eps and t < maxT:
         t += 1
 
+        # Identify unconverged walkers
         itermask = error > eps
         GjList = G[itermask]
 
-        # Filter out data points too far away to save computation time
+        # Apply filtering to data points to optimize computations
         X, c, weights, dist = wgauss_n_filtered_points_multiproc(X, GjList, h, weights, f_h=f_h, ncpu=ncpu)
-
-        mask = dist < f_h * h
 
         ni, mi = len(X), len(GjList)
 
+        # **Efficient logging**
         current_time = time.time()
-        if current_time - last_print_time >= 1:
+        if current_time - last_print_time >= 1:  # Only print every second to reduce I/O overhead
             elapsed_time = current_time - start_time
             formatted_time = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
             sys.stdout.write(
-                f"\rIteration {t} | Data points: {ni} | Walkers remaining: {mi}/{m} ({100 - mi / m * 100:0.1f}% complete) | {converge_frac}-percentile error: {pct_error:0.3f} | Total run time: {formatted_time}")
+                f"\rIteration {t} | Data points: {ni} | Walkers remaining: {mi}/{m} "
+                f"({100 - mi / m * 100:.1f}% complete) | {converge_frac}-percentile error: {pct_error:.3f} | "
+                f"Total run time: {formatted_time}")
             sys.stdout.flush()
+            last_print_time = current_time
 
-        GRes, errorRes = shift_wakers_multiproc(GjList, X, h, d, c, mask, ncpu)
-        G[itermask], error[itermask]  = GRes, errorRes
+        # Perform walker shift in parallel
+        GRes, errorRes = shift_wakers_multiproc(GjList, X, h, d, c, dist < f_h * h, ncpu)
 
+        # Update G and error **in-place**
+        G[itermask] = GRes
+        error[itermask] = errorRes
+
+        # Update error percentiles **efficiently**
         pct_error = np.percentile(error, converge_frac)
 
     sys.stdout.write("\n")
+    print(f"Number of CPUs used: {ncpu}")
+
+    # Determine which walkers converged
     mask = error < eps
 
-    ncpu = cpu_count() if ncpu is None else ncpu
-    print("the number of cpu used: ", ncpu)
-
-    if return_unconverged:
-        return G[mask], G[~mask]
-    else:
-        return G[mask]
+    return (G[mask], G[~mask]) if return_unconverged else G[mask]
 
 
 def wgauss_n_filtered_points(X, G, h, weights, f_h=5):

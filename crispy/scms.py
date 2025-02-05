@@ -78,6 +78,9 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-2, maxT=1000, weights=None, converge_
                 f"Total run time: {formatted_time}")
             sys.stdout.flush()
             last_print_time = current_time
+        # clear memory evey 10 seconds
+        if current_time - last_print_time >= 5:
+            gc.collect()
 
         # Perform walker shift in parallel
         GRes, errorRes = shift_wakers_multiproc(GjList, X, h, d, c, dist < f_h * h, ncpu)

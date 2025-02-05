@@ -225,7 +225,78 @@ def chunk_data(ncpu, data_list, data_size):
         chunks += ([data[i:i + chunk_size] for i in range(0, data_size, chunk_size)],)
     return chunks
 
-def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None):
+
+def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None, target_chunk_size=5000):
+    """
+    Optimized Adaptive Chunking Version:
+    - Keeps the advantages of the original version (chunking over `X`).
+    - Dynamically increases chunk count to **reduce memory usage**.
+    - Ensures that chunk size is **closer to `target_chunk_size`** but still efficient.
+
+    Parameters
+    ----------
+    X : ndarray
+        Data points, shape (n, D, 1).
+    G : ndarray
+        Walker positions, shape (m, D, 1).
+    h : float
+        Gaussian kernel bandwidth.
+    weights : ndarray
+        Weights of data points, shape (n,).
+    f_h : float
+        Distance multiplier cutoff.
+    ncpu : int, optional
+        Number of CPUs for parallel processing.
+    target_chunk_size : int, optional
+        Target size for chunks of `X` (default: 5000).
+
+    Returns
+    -------
+    X_filtered : ndarray
+        Filtered coordinates of the data points, shape (k, D, 1).
+    c : ndarray
+        Weighted Gaussian values for each filtered data point, shape (k,).
+    weights_filtered : ndarray
+        Filtered weights corresponding to `X_filtered`, shape (k,).
+    dist : ndarray
+        Distances between remaining data points and walker positions, shape (m, k).
+    """
+
+    if ncpu is None:
+        ncpu = -1  # Use all available cores
+
+    # Convert to float32 for efficiency
+    X = X.astype(np.float32, copy=False)
+    G = G.astype(np.float32, copy=False)
+    weights = weights.astype(np.float32, copy=False)
+    h = np.float32(h)
+    f_h = np.float32(f_h)
+
+    n = X.shape[0]  # Total data points
+
+    # **Dynamically adjust number of chunks based on `target_chunk_size`**
+    num_chunks = max(n // target_chunk_size, ncpu)  # Ensure at least `ncpu` chunks
+    X_chunks = np.array_split(X, num_chunks)
+    weights_chunks = np.array_split(weights, num_chunks)
+
+    # **Parallel processing using adaptive chunking**
+    results = Parallel(n_jobs=ncpu)(
+        delayed(wgauss_n_filtered_points)(X_chunk, G, h, weights_chunk, f_h)
+        for X_chunk, weights_chunk in zip(X_chunks, weights_chunks)
+    )
+
+    # **Extract results and concatenate efficiently**
+    X_filtered, c, weights_filtered, dist = zip(*results)
+
+    X_filtered = np.concatenate(X_filtered, axis=0)
+    c = np.hstack(c)  # Use hstack for better performance
+    weights_filtered = np.concatenate(weights_filtered, axis=0)
+    dist = np.hstack(dist)  # Use hstack for better performance
+
+    return X_filtered, c, weights_filtered, dist
+
+
+def wgauss_n_filtered_points_multiproc_kdtree(X, G, h, weights, f_h, ncpu=None):
     """
     Optimized: Uses a fully `query_radius()`-based approach with multi-processing.
 

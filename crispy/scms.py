@@ -412,14 +412,31 @@ def shift_wakers_multiproc(G, X, h, d, c, mask, ncpu):
     >>> G_updated, error = scms.shift_wakers_multiproc(walkers, data, h, d, c, mask, ncpu)
     """
     ncpu = cpu_count() if ncpu is None else ncpu
+    chunk_size = max(1, len(G) // ncpu)
 
-    # Split GjList into chunks for parallel processing
-    chunks = chunk_data(ncpu, [G, c, mask], len(G))
+    # Initialize storage with minimal memory allocations
+    GRes = np.empty_like(G, dtype=np.float32)
+    errorRes = np.empty(len(G), dtype=np.float32)
 
-    results = Parallel(n_jobs=ncpu)(delayed(shift_walkers)(G_chunk, X, h, d, c_chunk, mask_chunk)
-                                    for G_chunk, c_chunk, mask_chunk in zip(*chunks))
-    GRes, errorRes = zip(*results)
-    GRes, errorRes = np.concatenate(GRes, axis=0), np.concatenate(errorRes, axis=0)
+    # Define chunked data for parallel processing
+    chunks = [
+        (G[i:i + chunk_size], c[i:i + chunk_size], mask[i:i + chunk_size])
+        for i in range(0, len(G), chunk_size)
+    ]
+
+    results = Parallel(n_jobs=ncpu)(
+        delayed(shift_walkers)(G_chunk, X, h, d, c_chunk, mask_chunk)
+        for G_chunk, c_chunk, mask_chunk in chunks
+    )
+
+    # Store results directly in preallocated arrays
+    start = 0
+    for res_G, res_error in results:
+        end = start + len(res_G)
+        GRes[start:end] = res_G
+        errorRes[start:end] = res_error
+        start = end
+
     return GRes, errorRes
 
 
@@ -487,11 +504,11 @@ def shift_walkers(G, X, h, d, c, mask):
     n = X.shape[0]
 
     # Compute internally to make parallel processing easier. They take incredibly little space
-    H = np.eye(D) * h**2
-    Hinv = np.eye(D) / h**2
+    H = np.eye(D, dtype=np.float32) * h ** 2
+    Hinv = np.eye(D, dtype=np.float32) / h**2
 
     # Compute mean probability
-    pj = np.mean(c, axis=1)  # (m,)
+    pj = np.mean(c, axis=1)[:, None, None]  # (m, 1, 1)
 
     # Compute u for selected elements only
     mask_indices = np.argwhere(mask)  # (k, 2) where k is the number of True values in mask
@@ -502,21 +519,18 @@ def shift_walkers(G, X, h, d, c, mask):
 
     # Compute g for selected walker points using the mask
     c_selected = c[mask_indices[:, 0], mask_indices[:, 1]]  # (k,)
-    g = np.zeros(G.shape)  # (m, D, 1)
-    np.add.at(g, mask_indices[:, 0], -1 * c_selected[:, None, None] * u_diff / n)
+    g = np.zeros_like(G, dtype=np.float64)  # (m, D, 1) # use dtype=np.float32 breaks the code for some reasons
+    np.add.at(g, mask_indices[:, 0], -c_selected[:, None, None] * u_diff / n)
 
     # Compute u_diff.T @ u_diff using einsum to avoid explicit transpose and matmul
     product = np.einsum('nik,njk->nij', u_diff, u_diff) - Hinv  # (k, D, D)
 
     # Update Hessian matrix
-    Hess = np.zeros((m, D, D))  # (m, D, D)
+    Hess = np.zeros((m, D, D), dtype=np.float32)  # (m, D, D)
     np.add.at(Hess, mask_indices[:, 0], c_selected[:, None, None] * product / n)
 
-    # Expand dimensions for pj
-    pj = pj[:, None, None]  # (m, 1, 1)
-
     # Compute Sigmainv
-    Sigmainv = (-1 * Hess + np.einsum('mik,mil->mkl', g, g)/pj)/pj  # (m, D, D)
+    Sigmainv = (-Hess + np.einsum('mik,mil->mkl', g, g)/pj)/pj  # (m, D, D)
 
     # Compute the shift for each walker
     shift0 = G + np.einsum('ij,mjk->mik', H, g) / pj # (m, D, 1)

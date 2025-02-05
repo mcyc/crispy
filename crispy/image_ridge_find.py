@@ -11,7 +11,10 @@ import astropy.io.fits as fits
 from skimage import morphology
 from os.path import splitext
 
+from importlib import reload
+
 from . import scms as scms_mul
+reload(scms_mul)
 
 ########################################################################################################################
 

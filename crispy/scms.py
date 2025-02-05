@@ -167,16 +167,12 @@ def wgauss_n_filtered_points(X, G, h, weights, f_h=5):
     X : ndarray
         Coordinates of the data points, shape (n, D, 1), where `n` is the number of points
         and `D` is the dimensionality.
-
     G : ndarray
         Coordinates of the walkers, shape (m, D, 1), where `m` is the number of walkers.
-
     h : float
         Smoothing bandwidth of the Gaussian kernel.
-
     weights : ndarray
         Weights of the data points, shape (n,).
-
     f_h : float, optional, default=5
         Distance multiplier cutoff for filtering points. Data points farther than
         `f_h * h` from all walkers are excluded.
@@ -186,13 +182,10 @@ def wgauss_n_filtered_points(X, G, h, weights, f_h=5):
     X_filtered : ndarray
         Filtered coordinates of the data points, shape (k, D, 1), where `k` is the number of
         points that passed the filtering.
-
     c : ndarray
         Weighted Gaussian values for each data point, shape (k,).
-
     weights_filtered : ndarray
         Filtered weights corresponding to `X_filtered`, shape (k,).
-
     dist : ndarray
         Distances between remaining data points and walker positions, shape (m, k).
 
@@ -223,14 +216,14 @@ def wgauss_n_filtered_points(X, G, h, weights, f_h=5):
     weights = weights[~toofar]
 
     # Calculate the Gaussian values
-    inv_cov = 1 / (h**2)
-    exponent = -0.5 * np.sum(diff**2 * inv_cov, axis=-1)
+    inv_cov = 1 / (h ** 2)
+    # Optimized computation of exponent
+    exponent = -0.5 * np.einsum('ijk,ijk->ij', diff, diff) * inv_cov
     c = np.exp(exponent)
 
     return X, c * weights, weights, dist
 
 
-    # Use available_cpus as the default if ncpu is -1
 def chunk_data(ncpu, data_list, data_size):
     """
     Divide data into chunks for multiprocessing.
@@ -283,7 +276,7 @@ def chunk_data(ncpu, data_list, data_size):
     return chunks
 
 
-def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu):
+def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None):
     """
     Compute weighted Gaussian values for data points relative to walker positions
     in parallel, filtering out distant points to optimize computation.
@@ -296,20 +289,15 @@ def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu):
     X : ndarray
         Coordinates of the data points, shape (n, D, 1), where `n` is the number of points
         and `D` is the dimensionality.
-
     G : ndarray
         Coordinates of the walkers, shape (m, D, 1), where `m` is the number of walkers.
-
     h : float
         Smoothing bandwidth of the Gaussian kernel.
-
     weights : ndarray
         Weights of the data points, shape (n,).
-
     f_h : float
         Distance multiplier cutoff for filtering points. Data points farther than
         `f_h * h` from all walkers are excluded.
-
     ncpu : int
         Number of CPUs to use for parallel processing. If set to `None`, defaults
         to the number of available CPUs.
@@ -319,50 +307,42 @@ def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu):
     X_filtered : ndarray
         Filtered coordinates of the data points, shape (k, D, 1), where `k` is the number of
         points that passed the filtering.
-
     c : ndarray
         Weighted Gaussian values for each filtered data point, shape (k,).
-
     weights_filtered : ndarray
         Filtered weights corresponding to `X_filtered`, shape (k,).
-
     dist : ndarray
         Distances between remaining data points and walker positions, shape (m, k).
-
-    Notes
-    -----
-    - This function splits the dataset (`X` and `weights`) into chunks for parallel processing
-      using the specified number of CPUs.
-    - Multiprocessing accelerates computation on large datasets, especially when the number
-      of walkers and data points is high.
-    - Internally, this function calls `wgauss_n_filtered_points` for each chunk of the data.
-
-    Examples
-    --------
-    Compute Gaussian weights in parallel:
-
-    >>> import numpy as np
-    >>> from crispy import scms
-    >>> data = np.random.random((1000, 3, 1))  # Large dataset of 3D data points
-    >>> walkers = np.random.random((20, 3, 1))  # Walker positions
-    >>> weights = np.ones(1000)  # Equal weights for all data points
-    >>> X_filtered, c, weights_filtered, dist = scms.wgauss_n_filtered_points_multiproc(
-    ...     data, walkers, h=0.5, weights=weights, f_h=5, ncpu=4)
     """
-    ncpu = cpu_count() if ncpu is None else ncpu
+    if ncpu is None:
+        ncpu = -1  # Use all available cores
 
-    # Split GjList into chunks for parallel processing
-    chunks = chunk_data(ncpu, [X, weights], len(X))
+    # Convert data to float32 only if necessary
+    X = X.astype(np.float32, copy=False)
+    G = G.astype(np.float32, copy=False)
+    weights = weights.astype(np.float32, copy=False)
+    h = np.float32(h)
+    f_h = np.float32(f_h)
 
-    results = Parallel(n_jobs=ncpu)(delayed(wgauss_n_filtered_points)(X_chunk, G, h, weights_chunk, f_h)
-                                    for X_chunk, weights_chunk in zip(*chunks))
-    X, c, weights, dist = zip(*results)
-    X = np.concatenate(X, axis=0)
-    c = np.concatenate(c, axis=1)
-    weights = np.concatenate(weights, axis=0)
-    dist = np.concatenate(dist, axis=1)
+    # Efficiently split data
+    X_chunks = np.array_split(X, ncpu)
+    weights_chunks = np.array_split(weights, ncpu)
 
-    return X, c, weights, dist
+    # Parallel processing
+    results = Parallel(n_jobs=ncpu)(
+        delayed(wgauss_n_filtered_points)(X_chunk, G, h, weights_chunk, f_h)
+        for X_chunk, weights_chunk in zip(X_chunks, weights_chunks)
+    )
+
+    # Extract results and concatenate efficiently
+    X_filtered, c, weights_filtered, dist = zip(*results)
+
+    X_filtered = np.concatenate(X_filtered, axis=0)
+    c = np.hstack(c)  # Use hstack for better performance
+    weights_filtered = np.concatenate(weights_filtered, axis=0)
+    dist = np.hstack(dist)  # Use hstack for better performance
+
+    return X_filtered, c, weights_filtered, dist
 
 
 def shift_wakers_multiproc(G, X, h, d, c, mask, ncpu):
@@ -686,7 +666,6 @@ def euclidean_dist(X, G):
     X : ndarray
         Coordinates of the data points, shape (n, D, 1), where `n` is the number of points
         and `D` is the dimensionality.
-
     G : ndarray
         Coordinates of the walkers, shape (m, D, 1), where `m` is the number of walkers.
 
@@ -695,7 +674,6 @@ def euclidean_dist(X, G):
     distances : ndarray
         Pairwise Euclidean distances between each point in `G` and each point in `X`,
         shape (m, n).
-
     diff : ndarray
         Pairwise coordinate differences between points in `G` and points in `X`,
         shape (m, n, D).
@@ -704,25 +682,12 @@ def euclidean_dist(X, G):
     -----
     - This function is useful for calculating distances and displacements required
       in SCMS-based ridge detection.
-
-    Examples
-    --------
-    Compute pairwise distances and differences:
-
-    >>> import numpy as np
-    >>> from crispy import scms
-    >>> data = np.random.random((100, 3, 1))  # 3D data points
-    >>> walkers = np.random.random((10, 3, 1))  # Walker positions
-    >>> distances, diff = scms.euclidean_dist(data, walkers)
-    >>> print(distances.shape)  # Should be (10, 100)
-    >>> print(diff.shape)  # Should be (10, 100, 3)
     """
     X_squeezed = np.squeeze(X, axis=-1)
     G_squeezed = np.squeeze(G, axis=-1)
 
-    # Compute differences for all combinations of G and X
     diff = G_squeezed[:, np.newaxis, :] - X_squeezed[np.newaxis, :, :]
-    distances = np.linalg.norm(diff, axis=-1)
+    distances = np.sqrt(np.sum(diff ** 2, axis=-1))
 
     return distances, diff
 

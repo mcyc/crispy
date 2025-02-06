@@ -226,12 +226,13 @@ def chunk_data(ncpu, data_list, data_size):
     return chunks
 
 
-def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None, target_chunk_size=5000):
+def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None, target_chunk_size=5000, min_chunk_size=500):
     """
-    Optimized Adaptive Chunking Version:
-    - Keeps the advantages of the original version (chunking over `X`).
-    - Dynamically increases chunk count to **reduce memory usage**.
-    - Ensures that chunk size is **closer to `target_chunk_size`** but still efficient.
+    Optimized Adaptive Chunking Based on `m × n` Product.
+
+    - Uses NumPy vectorization but chunks `X` **based on `m × n` instead of just `n`**.
+    - Ensures memory efficiency while keeping computational workload balanced.
+    - Prevents excessive splitting by enforcing a **minimum chunk size**.
 
     Parameters
     ----------
@@ -248,7 +249,9 @@ def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None, target_
     ncpu : int, optional
         Number of CPUs for parallel processing.
     target_chunk_size : int, optional
-        Target size for chunks of `X` (default: 5000).
+        Desired number of elements per chunk (default: 5000).
+    min_chunk_size : int, optional
+        Minimum number of elements per chunk to prevent excessive splitting (default: 500).
 
     Returns
     -------
@@ -272,10 +275,16 @@ def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None, target_
     h = np.float32(h)
     f_h = np.float32(f_h)
 
-    n = X.shape[0]  # Total data points
+    # Get sizes
+    n = X.shape[0]  # Number of data points
+    m = G.shape[0]  # Number of walkers
 
-    # **Dynamically adjust number of chunks based on `target_chunk_size`**
-    num_chunks = max(n // target_chunk_size, ncpu)  # Ensure at least `ncpu` chunks
+    # **Compute the number of chunks based on `m × n`**
+    total_size = m * n  # Total number of pairwise computations
+    num_chunks = max(total_size // (target_chunk_size**2), ncpu)  # Ensure at least `ncpu` chunks
+
+    # **Ensure chunk size is not too small**
+    num_chunks = max(num_chunks, n // min_chunk_size)  # Ensure `X` isn't over-split
     X_chunks = np.array_split(X, num_chunks)
     weights_chunks = np.array_split(weights, num_chunks)
 
@@ -294,6 +303,7 @@ def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None, target_
     dist = np.hstack(dist)  # Use hstack for better performance
 
     return X_filtered, c, weights_filtered, dist
+
 
 
 def wgauss_n_filtered_points_multiproc_kdtree(X, G, h, weights, f_h, ncpu=None):
@@ -424,91 +434,78 @@ def wgauss_n_filtered_points_multiproc_npvec(X, G, h, weights, f_h, ncpu=None):
     return X_filtered, c, weights_filtered, dist
 
 
-def shift_wakers_multiproc(G, X, h, d, c, mask, ncpu):
-    """
-    Shift walkers towards density ridges using the SCMS algorithm with multiprocessing.
 
-    This function parallelizes the SCMS walker-shifting process for improved efficiency
-    on large datasets. It divides the walkers into chunks and processes them concurrently
-    across multiple CPUs.
+def shift_wakers_multiproc(G, X, h, d, c, mask, ncpu=None, target_chunk_size=5000, min_chunk_size=500):
+    """
+    Optimized Parallel Walker Shifting.
+
+    - Uses `joblib.Parallel` for multiprocessing.
+    - **Chunks `G` (walkers), not `X`**, ensuring full visibility of `X`.
+    - Preallocates `GRes` and `errorRes` to **avoid excessive memory operations**.
+    - Uses **adaptive chunking** to **balance memory usage and CPU workload**.
 
     Parameters
     ----------
     G : ndarray
-        Initial coordinates of the walkers, shape (m, D, 1), where `m` is the number of walkers
-        and `D` is the dimensionality.
-
+        Initial walker positions, shape `(m, D, 1)`.
     X : ndarray
-        Coordinates of the data points, shape (n, D, 1), where `n` is the number of data points.
-
+        Data points, shape `(n, D, 1)`.
     h : float
-        Smoothing bandwidth for the Gaussian kernel.
-
+        Smoothing bandwidth.
     d : int
-        Target dimensionality of the ridge subspace.
-
+        Target ridge subspace dimensionality.
     c : ndarray
-        Weighted Gaussian values computed for the data points and walkers, shape (m, n).
-
-    mask : ndarray of bool
-        Boolean mask indicating valid (True) data points for each walker. Shape is (m, n).
-
-    ncpu : int
-        Number of CPUs to use for parallel processing. If set to `None`, defaults to the number
-        of available CPUs.
+        Weighted Gaussian values for `X` and `G`, shape `(m, n)`.
+    mask : ndarray
+        Boolean mask indicating valid data points for each walker, shape `(m, n)`.
+    ncpu : int, optional
+        Number of CPUs for parallel processing.
+    target_chunk_size : int, optional
+        Target number of computations per chunk (default: `5000`).
+    min_chunk_size : int, optional
+        Minimum number of walkers per chunk (default: `500`).
 
     Returns
     -------
     G_updated : ndarray
-        Updated coordinates of the walkers after the SCMS shift, shape (m, D, 1).
-
+        Updated walker positions after shifting, shape `(m, D, 1)`.
     error : ndarray
-        Convergence error for each walker, shape (m,). The error represents the displacement
-        of each walker and is used to determine convergence.
-
-    Notes
-    -----
-    - The walkers (`G`) are divided into chunks, and each chunk is processed independently
-      on a separate CPU.
-    - Internally, this function calls `shift_walkers` for each chunk, ensuring consistency
-      with the SCMS algorithm.
-    - Multiprocessing is particularly beneficial when the number of walkers or data points
-      is large.
-
-    Examples
-    --------
-    Perform a parallel SCMS shift for walkers:
-
-    >>> import numpy as np
-    >>> from crispy import scms
-    >>> data = np.random.random((100, 3, 1))  # 3D data points
-    >>> walkers = np.random.random((10, 3, 1))  # Initial walker positions
-    >>> c = np.random.random((10, 100))  # Weighted Gaussian values
-    >>> mask = np.random.choice([True, False], size=(10, 100))  # Boolean mask
-    >>> h = 1.0
-    >>> d = 1
-    >>> ncpu = 4  # Use 4 CPUs
-    >>> G_updated, error = scms.shift_wakers_multiproc(walkers, data, h, d, c, mask, ncpu)
+        Convergence error for each walker, shape `(m,)`.
     """
-    ncpu = cpu_count() if ncpu is None else ncpu
-    chunk_size = max(1, len(G) // ncpu)
 
-    # Initialize storage with minimal memory allocations
+    if ncpu is None:
+        ncpu = -1  # Use all available CPU cores
+
+    # Convert to float32 for efficiency
+    G = G.astype(np.float32, copy=False)
+    X = X.astype(np.float32, copy=False)
+    c = c.astype(np.float32, copy=False)
+    mask = mask.astype(bool, copy=False)
+    h = np.float32(h)
+
+    m, D = G.shape[0], G.shape[1]
+
+    # **Compute the number of chunks based on `m × n`**
+    total_size = m * X.shape[0]  # Total number of pairwise operations
+    num_chunks = max(total_size // (target_chunk_size**2), ncpu)  # Ensure at least `ncpu` chunks
+
+    # **Ensure chunk size is reasonable**
+    num_chunks = max(num_chunks, m // min_chunk_size)  # Prevent over-splitting `G`
+    G_chunks = np.array_split(G, num_chunks)
+    c_chunks = np.array_split(c, num_chunks)
+    mask_chunks = np.array_split(mask, num_chunks)
+
+    # **Preallocate result storage to avoid concatenation overhead**
     GRes = np.empty_like(G, dtype=np.float32)
-    errorRes = np.empty(len(G), dtype=np.float32)
+    errorRes = np.empty(m, dtype=np.float32)
 
-    # Define chunked data for parallel processing
-    chunks = [
-        (G[i:i + chunk_size], c[i:i + chunk_size], mask[i:i + chunk_size])
-        for i in range(0, len(G), chunk_size)
-    ]
-
+    # **Parallel processing**
     results = Parallel(n_jobs=ncpu)(
         delayed(shift_walkers)(G_chunk, X, h, d, c_chunk, mask_chunk)
-        for G_chunk, c_chunk, mask_chunk in chunks
+        for G_chunk, c_chunk, mask_chunk in zip(G_chunks, c_chunks, mask_chunks)
     )
 
-    # Store results directly in preallocated arrays
+    # **Store results in preallocated arrays**
     start = 0
     for res_G, res_error in results:
         end = start + len(res_G)

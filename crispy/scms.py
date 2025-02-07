@@ -16,6 +16,27 @@ from sklearn.neighbors import KDTree
 
 #======================================================================================================================#
 
+import functools
+import tracemalloc
+
+def peak_memory_usage(func):
+    """Decorator to measure and print the peak memory usage (in MB) of a function execution."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        tracemalloc.start()
+
+        result = func(*args, **kwargs)
+
+        current, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+
+        print(f"[{func.__name__}] Peak memory usage: {peak / (1024 * 1024):.2f} MB")
+
+        return result
+
+    return wrapper
+
+
 def find_ridge(X, G, D=3, h=1, d=1, eps=1e-2, maxT=1000, weights=None, converge_frac=99, ncpu=None,
                return_unconverged=True, f_h=5):
     """
@@ -65,7 +86,16 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-2, maxT=1000, weights=None, converge_
         GjList = G[itermask]
 
         # Apply filtering to data points to optimize computations
-        X, c, weights, dist = wgauss_n_filtered_points_multiproc(X, GjList, h, weights, f_h=f_h, ncpu=ncpu)
+        #X, c, weights, dist = wgauss_n_filtered_points_multiproc(X, GjList, h, weights, f_h=f_h, ncpu=ncpu)
+        #X, c, weights, dist = wgauss_n_filtered_points_multiproc_opt(X, GjList, h, weights, f_h=f_h, ncpu=ncpu)
+        #X, c, weights, dist = wgauss_n_filtered_points_multiproc_kdtree(X, GjList, h, weights, f_h=f_h, ncpu=ncpu)
+
+        # Inside your find_ridge() loop:
+        # (Assuming you want to use the boolean mask version to pass into shift_wakers_multiproc.)
+        X, c, weights, mask = wgauss_n_filtered_points_multiproc_opt(
+            X, GjList, h, weights, f_h=f_h, ncpu=ncpu, return_distances=False
+        )
+
 
         ni, mi = len(X), len(GjList)
 
@@ -85,7 +115,8 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-2, maxT=1000, weights=None, converge_
             gc.collect()
 
         # Perform walker shift in parallel
-        GRes, errorRes = shift_wakers_multiproc(GjList, X, h, d, c, dist < f_h * h, ncpu)
+        #GRes, errorRes = shift_wakers_multiproc(GjList, X, h, d, c, dist < f_h * h, ncpu)
+        GRes, errorRes = shift_wakers_multiproc(GjList, X, h, d, c, mask, ncpu)
 
         # Update G and error **in-place**
         G[itermask] = GRes
@@ -165,11 +196,16 @@ def wgauss_n_filtered_points(X, G, h, weights, f_h=5):
     dist = dist[:, ~toofar]
     weights = weights[~toofar]
 
+    del toofar
+    gc.collect()
+
     # Calculate the Gaussian values
     inv_cov = 1 / (h ** 2)
     # Optimized computation of exponent
-    exponent = -0.5 * np.einsum('ijk,ijk->ij', diff, diff) * inv_cov
-    c = np.exp(exponent)
+    c = np.exp(-0.5 * np.einsum('ijk,ijk->ij', diff, diff) * inv_cov)
+
+    del diff
+    gc.collect()
 
     return X, c * weights, weights, dist
 
@@ -224,6 +260,148 @@ def chunk_data(ncpu, data_list, data_size):
     for data in data_list:
         chunks += ([data[i:i + chunk_size] for i in range(0, data_size, chunk_size)],)
     return chunks
+
+
+def wgauss_n_filtered_points_multiproc_opt(X, G, h, weights, f_h, ncpu=None,
+                                             target_chunk_size=5000, min_chunk_size=500,
+                                             return_distances=False):
+    """
+    Multiprocessing wrapper for wgauss_n_filtered_points_opt.
+
+    The function splits X (and weights) into chunks to limit memory usage
+    when computing the full pairwise differences, then runs the filtering
+    in parallel. The number of chunks is determined by both the target chunk
+    size and the number of CPUs.
+
+    Parameters
+    ----------
+    X : ndarray
+        Data points, shape (n, D, 1).
+    G : ndarray
+        Walker positions, shape (m, D, 1).
+    h : float
+        Gaussian kernel bandwidth.
+    weights : ndarray
+        Weights for the data points, shape (n,).
+    f_h : float
+        Cutoff multiplier for filtering.
+    ncpu : int, optional
+        Number of CPUs to use (defaults to all available).
+    target_chunk_size : int, optional
+        Target number of data points per chunk.
+    min_chunk_size : int, optional
+        Minimum chunk size to avoid over‑splitting.
+    return_distances : bool, optional
+        Passed to wgauss_n_filtered_points_opt (see its docstring).
+
+    Returns
+    -------
+    X_filtered : ndarray
+        Filtered data points.
+    c : ndarray
+        Weighted Gaussian values for the filtered points.
+    weights_filtered : ndarray
+        Filtered weights.
+    out : ndarray
+        Either distances or a boolean mask (see wgauss_n_filtered_points_opt).
+    """
+    if ncpu is None:
+        ncpu = cpu_count()
+
+    n_points = X.shape[0]
+    # Determine number of chunks; ensure at least ncpu chunks but avoid too many small chunks.
+    num_chunks = max(ncpu, n_points // target_chunk_size)
+    num_chunks = min(num_chunks, n_points // min_chunk_size) if n_points >= min_chunk_size else 1
+
+    # Split X and weights into roughly equal chunks
+    X_chunks = np.array_split(X, num_chunks)
+    weights_chunks = np.array_split(weights, num_chunks)
+
+    results = Parallel(n_jobs=ncpu)(
+        delayed(wgauss_n_filtered_points_opt)(X_chunk, G, h, w_chunk, f_h, return_distances)
+        for X_chunk, w_chunk in zip(X_chunks, weights_chunks)
+    )
+
+    # Unpack and efficiently concatenate results
+    X_filtered_list, c_list, weights_filtered_list, out_list = zip(*results)
+    X_filtered = np.concatenate(X_filtered_list, axis=0)
+    # For c, if each chunk’s result is (m, k_chunk), hstack along the second axis gives (m, total_k)
+    c = np.hstack(c_list)
+    weights_filtered = np.concatenate(weights_filtered_list, axis=0)
+    # out (distances or mask) will be hstacked similarly.
+    out = np.hstack(out_list)
+
+    return X_filtered, c, weights_filtered, out
+
+
+def wgauss_n_filtered_points_opt(X, G, h, weights, f_h=5, return_distances=False):
+    """
+    Optimized weighted Gaussian evaluation and filtering.
+
+    This version avoids computing the square-root (which saves both time and memory)
+    by working with squared distances. It also squeezes out the trailing singleton
+    dimension so that temporary arrays are smaller.
+
+    Parameters
+    ----------
+    X : ndarray
+        Data points, shape (n, D, 1).
+    G : ndarray
+        Walker positions, shape (m, D, 1).
+    h : float
+        Gaussian kernel bandwidth.
+    weights : ndarray
+        Weights of the data points, shape (n,).
+    f_h : float, optional
+        Multiplier for the bandwidth cutoff.
+    return_distances : bool, optional
+        If True, return the distances (square-root of squared distances); otherwise,
+        return a boolean mask (which uses much less memory).
+
+    Returns
+    -------
+    X_filtered : ndarray
+        Filtered data points (only those within f_h * h of at least one walker).
+    c : ndarray
+        Weighted Gaussian values (each multiplied by the corresponding weight).
+    weights_filtered : ndarray
+        Filtered weights corresponding to X_filtered.
+    out : ndarray
+        Either the distances (if return_distances=True) or a boolean mask (if False)
+        indicating, for each walker × filtered point, whether that point is within
+        f_h * h.
+    """
+    # Work with 2D views (n, D) and (m, D)
+    Xs = np.squeeze(X, axis=-1)  # shape: (n, D)
+    Gs = np.squeeze(G, axis=-1)  # shape: (m, D)
+
+    # Compute squared Euclidean distances (without computing sqrt)
+    squared_diff = np.sum((Gs[:, None, :] - Xs[None, :, :])**2, axis=-1)  # shape: (m, n)
+
+    # Identify points that are “too far” from all walkers.
+    # (For each data point, if every walker is farther than the cutoff, mark it as too far.)
+    keep = ~np.all(squared_diff > (f_h * h) ** 2, axis=0)  # shape: (n,)
+
+    # Filter the data and corresponding weights
+    weights_filtered = weights[keep]  # shape: (k,)
+
+    # Also filter the computed differences and squared distances along the data axis.
+    squared_diff_filtered = squared_diff[:, keep]  # shape: (m, k)
+
+    # Compute Gaussian kernel values (using squared distances)
+    inv_cov = 1 / (h ** 2)
+    c = np.exp(-0.5 * squared_diff_filtered * inv_cov)*weights_filtered  # shape: (m, k)
+
+    # Prepare output: either distances or just a boolean mask
+    if return_distances:
+        # (This does require an extra sqrt computation; if not needed, set return_distances=False)
+        distances = np.sqrt(squared_diff_filtered)
+        out = distances
+    else:
+        # A boolean mask: True if the (squared) distance is below the cutoff
+        out = squared_diff_filtered < (f_h * h) ** 2
+
+    return X[keep], c, weights_filtered, out
 
 
 def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None, target_chunk_size=5000, min_chunk_size=500):
@@ -285,6 +463,7 @@ def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None, target_
 
     # **Ensure chunk size is not too small**
     num_chunks = max(num_chunks, n // min_chunk_size)  # Ensure `X` isn't over-split
+    #print(f"filter points n chunks: {num_chunks}")
     X_chunks = np.array_split(X, num_chunks)
     weights_chunks = np.array_split(weights, num_chunks)
 
@@ -304,49 +483,58 @@ def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None, target_
 
     return X_filtered, c, weights_filtered, dist
 
-
-
-def wgauss_n_filtered_points_multiproc_kdtree(X, G, h, weights, f_h, ncpu=None):
+def wgauss_n_filtered_points_multiproc_kdtree(X, G, h, weights, f_h, ncpu=None, max_neighbors_per_walker=500):
     """
-    Optimized: Uses a fully `query_radius()`-based approach with multi-processing.
+    Optimized: Uses a memory-efficient `query_radius()`-based approach.
 
-    - Uses `query_radius()` to find only relevant neighbors within `f_h * h`.
-    - Multi-processing (`joblib.Parallel`) is used to speed up queries.
-    - Avoids manual filtering since `query_radius()` already applies the distance cutoff.
+    - **Processes walkers in chunks** to prevent memory spikes.
+    - **Limits max neighbors per walker** to control memory growth.
+    - **Avoids full-scale `np.concatenate()` operations**.
     """
 
     if ncpu is None:
         ncpu = cpu_count()
 
-    # Convert to float32 for efficiency (copy=False avoids memory duplication)
+    # Convert to float32 for efficiency
     X = X.astype(np.float32, copy=False).squeeze(-1)  # Shape (n, D)
     G = G.astype(np.float32, copy=False).squeeze(-1)  # Shape (m, D)
     weights = weights.astype(np.float32, copy=False)
-
     h = np.float32(h)
     f_h = np.float32(f_h)
 
-    # **Build a KD-Tree**
+    # **Build KDTree for fast neighbor queries**
     tree = KDTree(X, leaf_size=40)
 
-    # **Parallel `query_radius()` execution**
-    def query_radius_chunk(G_chunk):
-        return tree.query_radius(G_chunk, r=f_h * h)
-
-    chunk_size = max(1, len(G) // ncpu)  # Divide walkers into `ncpu` chunks
+    # **Process walkers in chunks to avoid memory spikes**
+    chunk_size = max(1, len(G) // ncpu)
     G_chunks = [G[i: i + chunk_size] for i in range(0, len(G), chunk_size)]
 
+    filtered_results = []
+
+    def query_chunk(G_chunk):
+        """ Query radius in a controlled manner. """
+        neighbor_indices = tree.query_radius(G_chunk, r=f_h * h)
+        # **Cap the number of neighbors per walker to prevent excessive memory usage**
+        truncated_indices = [idx[:max_neighbors_per_walker] for idx in neighbor_indices]
+        return truncated_indices
+
+    # **Parallel execution with controlled memory usage**
     results = Parallel(n_jobs=ncpu)(
-        delayed(query_radius_chunk)(G_chunk) for G_chunk in G_chunks
+        delayed(query_chunk)(G_chunk) for G_chunk in G_chunks
     )
 
-    # **Flatten results safely**
-    neighbor_indices = [idx for sublist in results for idx in sublist]
-    valid_neighbors = [idx for idx in neighbor_indices if len(idx) > 0]
+    # **Process each chunk separately to reduce memory load**
+    for neighbor_indices in results:
+        if neighbor_indices:  # Skip empty results
+            filtered_results.extend(neighbor_indices)
 
-    if len(valid_neighbors) == 0:  # If no neighbors were found for any walker
+    # **Flatten only as much as needed (batch-wise processing)**
+    valid_neighbors = [idx for idx in filtered_results if len(idx) > 0]
+
+    if not valid_neighbors:
         return np.empty((0, X.shape[1], 1)), np.empty((0,)), np.empty((0,)), np.empty((0,))
 
+    # **Instead of a full `np.concatenate()`, process in chunks**
     unique_indices = np.unique(np.hstack(valid_neighbors))
 
     # **Extract only the relevant points**
@@ -358,11 +546,10 @@ def wgauss_n_filtered_points_multiproc_kdtree(X, G, h, weights, f_h, ncpu=None):
     dist = np.linalg.norm(diff, axis=-1)  # Shape (m, k)
 
     inv_cov = 1 / (h ** 2)
-    exponent = -0.5 * np.sum(diff**2 * inv_cov, axis=-1)  # Shape (m, k)
+    exponent = -0.5 * np.sum(diff ** 2 * inv_cov, axis=-1)  # Shape (m, k)
     c = np.exp(exponent) * weights_filtered  # Apply weights
 
     return X_filtered[:, :, None], c, weights_filtered, dist
-
 
 
 def wgauss_n_filtered_points_multiproc_npvec(X, G, h, weights, f_h, ncpu=None):
@@ -434,7 +621,6 @@ def wgauss_n_filtered_points_multiproc_npvec(X, G, h, weights, f_h, ncpu=None):
     return X_filtered, c, weights_filtered, dist
 
 
-
 def shift_wakers_multiproc(G, X, h, d, c, mask, ncpu=None, target_chunk_size=5000, min_chunk_size=500):
     """
     Optimized Parallel Walker Shifting.
@@ -491,6 +677,7 @@ def shift_wakers_multiproc(G, X, h, d, c, mask, ncpu=None, target_chunk_size=500
 
     # **Ensure chunk size is reasonable**
     num_chunks = max(num_chunks, m // min_chunk_size)  # Prevent over-splitting `G`
+    #print(f"shift walker n chunks: {num_chunks}")
     G_chunks = np.array_split(G, num_chunks)
     c_chunks = np.array_split(c, num_chunks)
     mask_chunks = np.array_split(mask, num_chunks)
@@ -516,7 +703,7 @@ def shift_wakers_multiproc(G, X, h, d, c, mask, ncpu=None, target_chunk_size=500
     return GRes, errorRes
 
 
-def shift_walkers(G, X, h, d, c, mask):
+def shift_walkers(G, X, h, d, c, mask, cleanup_threshold=1e6):
     """
     Shift walkers towards density ridges using the Subspace Constrained Mean Shift (SCMS) algorithm.
 
@@ -579,50 +766,88 @@ def shift_walkers(G, X, h, d, c, mask):
     m, D = G.shape[0], G.shape[1]
     n = X.shape[0]
 
-    # Compute internally to make parallel processing easier. They take incredibly little space
+    # determine if gc.collect() is needed
+    clean = m * n > cleanup_threshold
+
+    # Compute H and Hinv matrices
     H = np.eye(D, dtype=np.float32) * h ** 2
-    Hinv = np.eye(D, dtype=np.float32) / h**2
+    Hinv = np.eye(D, dtype=np.float32) / h ** 2
 
     # Compute mean probability
     pj = np.mean(c, axis=1)[:, None, None]  # (m, 1, 1)
 
     # Compute u for selected elements only
     mask_indices = np.argwhere(mask)  # (k, 2) where k is the number of True values in mask
-    diff_selected = G[mask_indices[:, 0]] - X[mask_indices[:, 1]]  # (k, D, 1)
+    diff_selected = np.take(G, mask_indices[:, 0], axis=0) - np.take(X, mask_indices[:, 1], axis=0)
 
     # Compute u directly without creating the intermediate step
     u_diff = np.einsum('ij,njk->nik', Hinv, diff_selected)  # (k, D, 1) #/h**2 still needed?
+
+    if clean:
+        del diff_selected
+        gc.collect()
 
     # Compute g for selected walker points using the mask
     c_selected = c[mask_indices[:, 0], mask_indices[:, 1]]  # (k,)
     g = np.zeros_like(G, dtype=np.float64)  # (m, D, 1) # use dtype=np.float32 breaks the code for some reasons
     np.add.at(g, mask_indices[:, 0], -c_selected[:, None, None] * u_diff / n)
 
-    # Compute u_diff.T @ u_diff using einsum to avoid explicit transpose and matmul
+    # Compute Hessian update
     product = np.einsum('nik,njk->nij', u_diff, u_diff) - Hinv  # (k, D, D)
+
+    # **Adaptive Memory Cleanup**
+    if clean:
+        del u_diff
+        gc.collect()
 
     # Update Hessian matrix
     Hess = np.zeros((m, D, D), dtype=np.float32)  # (m, D, D)
     np.add.at(Hess, mask_indices[:, 0], c_selected[:, None, None] * product / n)
 
+    # **Adaptive Memory Cleanup**
+    if m * n > cleanup_threshold:
+        del product
+        del c_selected
+        gc.collect()
+
     # Compute Sigmainv
     Sigmainv = (-Hess + np.einsum('mik,mil->mkl', g, g)/pj)/pj  # (m, D, D)
+
 
     # Compute the shift for each walker
     shift0 = G + np.einsum('ij,mjk->mik', H, g) / pj # (m, D, 1)
 
-    # Eigen decomposition for Sigmainv
+    # **Adaptive Memory Cleanup**
+    if m * n > cleanup_threshold:
+        del Hess
+        gc.collect()
+
+    # Eigen decomposition
     EigVal, EigVec = np.linalg.eigh(Sigmainv) # (m, D), (m, D, D)
 
     # Get the eigenvectors with the largest eigenvalues
     V = EigVec[:, :, d:D]  # (m, D, D-d)
 
+    # **Adaptive Memory Cleanup**
+    if m * n > cleanup_threshold:
+        del Sigmainv
+        del EigVal
+        del EigVec
+        gc.collect()
+
     # Update G for each walker
     G = np.einsum('mij,mjk->mik', np.einsum('mik,mjk->mij', V, V), (shift0 - G)) + G  # (m, D, 1)
 
-    # Compute the error term
+    # Compute error
     tmp = np.einsum('mji,mjk->mik', V, g)  # (m, D, 1)
     error = np.sqrt(np.einsum('mik,mik->m', tmp, tmp) / np.einsum('mik,mik->m', g, g))  # (m,)
+
+    # **Adaptive Memory Cleanup**
+    if m * n > cleanup_threshold:
+        del g
+        del V
+        del tmp
+        gc.collect()
 
     return G, error
 

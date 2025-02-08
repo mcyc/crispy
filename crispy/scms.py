@@ -14,36 +14,10 @@ import gc
 
 #======================================================================================================================#
 
-import functools
-import tracemalloc
-
-def peak_memory_usage(func):
-    """Decorator to measure and print the peak memory usage (in MB) of a function execution."""
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        tracemalloc.start()
-
-        result = func(*args, **kwargs)
-
-        current, peak = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
-
-        print(f"[{func.__name__}] Peak memory usage: {peak / (1024 * 1024):.2f} MB")
-
-        return result
-
-    return wrapper
-
-
 def find_ridge(X, G, D=3, h=1, d=1, eps=1e-2, maxT=1000, weights=None, converge_frac=99, ncpu=None,
                return_unconverged=True, f_h=5):
     """
-    Identify density ridges in data using the Subspace Constrained Mean Shift (SCMS) algorithm.
-    In this restructured version, the inner loop calls wgauss_and_shift_multiproc() which:
-      1. Chunks the unconverged walkers (G) and, for each chunk, computes the Gaussian weights and a boolean mask
-         for all of X (without filtering X) and then shifts the walkers using shift_walkers().
-      2. Combines the per-chunk masks via a logical OR.
-      3. Uses the combined mask to filter X (and weights) globally for the next iteration.
+    Identify density ridges using the Subspace Constrained Mean Shift (SCMS) algorithm.
 
     Parameters
     ----------
@@ -64,9 +38,9 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-2, maxT=1000, weights=None, converge_
     weights : ndarray, optional
         Weights for the data points, shape (n,).
     converge_frac : float, optional
-        The percentile of error used to determine convergence.
+        Percentile of error used to determine convergence.
     ncpu : int, optional
-        Number of CPUs to use (defaults to all available cores).
+        Number of CPUs to use (defaults to all available).
     return_unconverged : bool, optional
         If True, return both converged and unconverged walkers.
     f_h : float, optional
@@ -74,9 +48,11 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-2, maxT=1000, weights=None, converge_
 
     Returns
     -------
-    Depending on return_unconverged, returns either:
-      - (G_converged, G_unconverged)
-      - or G_converged
+    G_converged : ndarray
+        Final positions of converged walkers, shape (m', D, 1).
+    G_unconverged : ndarray, optional
+        Final positions of unconverged walkers, shape (m'', D, 1). Returned if
+        `return_unconverged` is True.
     """
     # Convert data types as needed
     G = G.astype(np.float32, copy=False)
@@ -142,16 +118,10 @@ def find_ridge(X, G, D=3, h=1, d=1, eps=1e-2, maxT=1000, weights=None, converge_
     return (G[mask_conv], G[~mask_conv]) if return_unconverged else G[mask_conv]
 
 
-def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None,
-                                             target_chunk_size=1000, min_chunk_size=100,
-                                             return_distances=False):
+def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None, target_chunk_size=1000, min_chunk_size=100,
+                                       return_distances=False):
     """
-    Multiprocessing wrapper for wgauss_n_filtered_points_opt.
-
-    The function splits X (and weights) into chunks to limit memory usage
-    when computing the full pairwise differences, then runs the filtering
-    in parallel. The number of chunks is determined by both the target chunk
-    size and the number of CPUs.
+    Compute weighted Gaussian values and filter data points in parallel.
 
     Parameters
     ----------
@@ -170,20 +140,20 @@ def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None,
     target_chunk_size : int, optional
         Target number of data points per chunk.
     min_chunk_size : int, optional
-        Minimum chunk size to avoid over‑splitting.
+        Minimum chunk size to avoid excessive splitting.
     return_distances : bool, optional
-        Passed to wgauss_n_filtered_points_opt (see its docstring).
+        If True, return distances instead of a boolean mask.
 
     Returns
     -------
     X_filtered : ndarray
-        Filtered data points.
+        Filtered data points, shape (k, D, 1).
     c : ndarray
-        Weighted Gaussian values for the filtered points.
+        Weighted Gaussian values for the filtered points, shape (m, k).
     weights_filtered : ndarray
-        Filtered weights.
+        Filtered weights, shape (k,).
     out : ndarray
-        Either distances or a boolean mask (see wgauss_n_filtered_points_opt).
+        Distances or boolean mask, depending on `return_distances`.
     """
     if ncpu is None:
         ncpu = cpu_count()
@@ -216,11 +186,7 @@ def wgauss_n_filtered_points_multiproc(X, G, h, weights, f_h, ncpu=None,
 
 def wgauss_n_filtered_points(X, G, h, weights, f_h=5, return_distances=False):
     """
-    Optimized weighted Gaussian evaluation and filtering.
-
-    This version avoids computing the square-root (which saves both time and memory)
-    by working with squared distances. It also squeezes out the trailing singleton
-    dimension so that temporary arrays are smaller.
+    Compute weighted Gaussian values and filter data points within a cutoff distance.
 
     Parameters
     ----------
@@ -235,21 +201,18 @@ def wgauss_n_filtered_points(X, G, h, weights, f_h=5, return_distances=False):
     f_h : float, optional
         Multiplier for the bandwidth cutoff.
     return_distances : bool, optional
-        If True, return the distances (square-root of squared distances); otherwise,
-        return a boolean mask (which uses much less memory).
+        If True, return distances instead of a boolean mask.
 
     Returns
     -------
     X_filtered : ndarray
-        Filtered data points (only those within f_h * h of at least one walker).
+        Filtered data points within the cutoff distance, shape (k, D, 1).
     c : ndarray
-        Weighted Gaussian values (each multiplied by the corresponding weight).
+        Weighted Gaussian values for the filtered points, shape (m, k).
     weights_filtered : ndarray
-        Filtered weights corresponding to X_filtered.
+        Filtered weights, shape (k,).
     out : ndarray
-        Either the distances (if return_distances=True) or a boolean mask (if False)
-        indicating, for each walker × filtered point, whether that point is within
-        f_h * h.
+        Distances or boolean mask, depending on `return_distances`.
     """
     # Work with 2D views (n, D) and (m, D)
     Xs = np.squeeze(X, axis=-1)  # shape: (n, D)
@@ -281,42 +244,36 @@ def wgauss_n_filtered_points(X, G, h, weights, f_h=5, return_distances=False):
 
 def shift_wakers_multiproc(G, X, h, d, c, mask, ncpu=None, target_chunk_size=5000, min_chunk_size=500):
     """
-    Optimized Parallel Walker Shifting.
-
-    - Uses `joblib.Parallel` for multiprocessing.
-    - **Chunks `G` (walkers), not `X`**, ensuring full visibility of `X`.
-    - Preallocates `GRes` and `errorRes` to **avoid excessive memory operations**.
-    - Uses **adaptive chunking** to **balance memory usage and CPU workload**.
+    Shift walkers towards density ridges using parallel processing.
 
     Parameters
     ----------
     G : ndarray
-        Initial walker positions, shape `(m, D, 1)`.
+        Initial walker positions, shape (m, D, 1).
     X : ndarray
-        Data points, shape `(n, D, 1)`.
+        Data points, shape (n, D, 1).
     h : float
         Smoothing bandwidth.
     d : int
         Target ridge subspace dimensionality.
     c : ndarray
-        Weighted Gaussian values for `X` and `G`, shape `(m, n)`.
+        Weighted Gaussian values for `X` and `G`, shape (m, n).
     mask : ndarray
-        Boolean mask indicating valid data points for each walker, shape `(m, n)`.
+        Boolean mask indicating valid data points for each walker, shape (m, n).
     ncpu : int, optional
-        Number of CPUs for parallel processing.
+        Number of CPUs for parallel processing (defaults to all available).
     target_chunk_size : int, optional
-        Target number of computations per chunk (default: `5000`).
+        Target number of computations per chunk.
     min_chunk_size : int, optional
-        Minimum number of walkers per chunk (default: `500`).
+        Minimum number of walkers per chunk.
 
     Returns
     -------
     G_updated : ndarray
-        Updated walker positions after shifting, shape `(m, D, 1)`.
+        Updated walker positions, shape (m, D, 1).
     error : ndarray
-        Convergence error for each walker, shape `(m,)`.
+        Convergence error for each walker, shape (m,).
     """
-
     if ncpu is None:
         ncpu = -1  # Use all available CPU cores
 
@@ -363,35 +320,31 @@ def shift_wakers_multiproc(G, X, h, d, c, mask, ncpu=None, target_chunk_size=500
 
 def shift_walkers(G, X, h, d, c, mask, cleanup_threshold=1e6):
     """
-    Shift walkers towards density ridges using the Subspace Constrained Mean Shift (SCMS) algorithm.
-
-    This function updates the positions of walkers (`G`) based on local density estimates
-    from data points (`X`) and a Gaussian kernel with bandwidth `h`. The shift is constrained
-    to the subspace defined by the eigenvectors of the Hessian matrix with the largest eigenvalues.
+    Perform a single SCMS shift step to update walker positions.
 
     Parameters
     ----------
     G : ndarray
-        Coordinates of the walkers, shape (m, D, 1), where `m` is the number of walkers
-        and `D` is the dimensionality.
+        Walker positions, shape (m, D, 1).
     X : ndarray
-        Coordinates of the data points, shape (n, D, 1), where `n` is the number of points.
+        Data points, shape (n, D, 1).
     h : float
-        Smoothing bandwidth for the Gaussian kernel.
+        Smoothing bandwidth.
     d : int
-        Target dimensionality of the ridge subspace.
+        Target ridge subspace dimensionality.
     c : ndarray
-        Weighted Gaussian values computed for the data points and walkers, shape (m, n).
-    mask : ndarray of bool
-        Boolean mask indicating valid (True) data points for each walker. Shape is (m, n).
+        Weighted Gaussian values, shape (m, n).
+    mask : ndarray
+        Boolean mask indicating valid data points for each walker, shape (m, n).
+    cleanup_threshold : int, optional
+        Threshold for triggering garbage collection.
 
     Returns
     -------
     G_updated : ndarray
-        Updated coordinates of the walkers after the SCMS shift, shape (m, D, 1).
+        Updated walker positions, shape (m, D, 1).
     error : ndarray
-        Convergence error for each walker, shape (m,). The error represents the displacement
-        of each walker and is used to determine convergence.
+        Convergence error for each walker, shape (m,).
 
     Notes
     -----
@@ -400,20 +353,6 @@ def shift_walkers(G, X, h, d, c, mask, cleanup_threshold=1e6):
       largest eigenvalues.
     - The convergence error is calculated as the magnitude of the shift relative to the
       density gradient.
-
-    Examples
-    --------
-    Perform a single SCMS shift for walkers:
-
-    >>> import numpy as np
-    >>> from crispy import scms
-    >>> data = np.random.random((100, 3, 1))  # 3D data points
-    >>> walkers = np.random.random((10, 3, 1))  # Walker positions
-    >>> c = np.random.random((10, 100))  # Weighted Gaussian values
-    >>> mask = np.random.choice([True, False], size=(10, 100))  # Boolean mask
-    >>> h = 1.0
-    >>> d = 1
-    >>> G_updated, error = scms.shift_walkers(walkers, data, h, d, c, mask)
     """
     m, D = G.shape[0], G.shape[1]
     n = X.shape[0]
@@ -465,7 +404,6 @@ def shift_walkers(G, X, h, d, c, mask, cleanup_threshold=1e6):
     # Compute Sigmainv
     Sigmainv = (-Hess + np.einsum('mik,mil->mkl', g, g)/pj)/pj  # (m, D, D)
 
-
     # Compute the shift for each walker
     shift0 = G + np.einsum('ij,mjk->mik', H, g) / pj # (m, D, 1)
 
@@ -506,7 +444,7 @@ def shift_walkers(G, X, h, d, c, mask, cleanup_threshold=1e6):
 
 def wgauss_n_all_points(X, G, h, weights, f_h=5):
     """
-    Compute weighted Gaussian values and a boolean mask for all data points in X without filtering X.
+    Compute weighted Gaussian values and distance-thresholded boolean mask for all data points.
 
     Parameters
     ----------
@@ -524,10 +462,9 @@ def wgauss_n_all_points(X, G, h, weights, f_h=5):
     Returns
     -------
     c : ndarray
-        Weighted Gaussian values, shape (m, n). (Each row corresponds to a walker.)
-    mask : ndarray of bool
-        Boolean mask (shape (m, n)) indicating for each walker and each data point whether the
-        squared Euclidean distance is below (f_h * h)**2.
+        Weighted Gaussian values, shape (m, n).
+    mask : ndarray
+        Boolean mask indicating points within the cutoff distance, shape (m, n).
     """
     # Squeeze to work with 2D arrays (n, D) and (m, D)
     Xs = np.squeeze(X, axis=-1)  # (n, D)
@@ -544,19 +481,17 @@ def wgauss_n_all_points(X, G, h, weights, f_h=5):
 
 def wgauss_and_shift_multiproc(X, G, h, d, weights, f_h, ncpu=None, target_chunk_size=500):
     """
-    For a given iteration, process the (unconverged) walkers in G by splitting them into chunks.
-    For each chunk, compute the weighted Gaussian values and boolean mask (using all of X, unfiltered)
-    and then run the SCMS walker shift on that chunk.
+    Compute Gaussian weights and shift walkers in parallel.
 
-    At the end, the per-chunk masks (each of shape (n,) obtained via a logical OR over the walker axis)
-    are combined (using logical OR) into a single mask that is used to filter X globally for the next iteration.
+    Runs wgauss and shift_walkers in series, parallelized by chunking walkers (G) to optimize
+    Computing and memory effeciency.
 
     Parameters
     ----------
     X : ndarray
-        Full data points, shape (n, D, 1).
+        Data points, shape (n, D, 1).
     G : ndarray
-        Walker positions (for the unconverged walkers), shape (m, D, 1).
+        Walker positions, shape (m, D, 1).
     h : float
         Gaussian kernel bandwidth.
     d : int
@@ -564,21 +499,20 @@ def wgauss_and_shift_multiproc(X, G, h, d, weights, f_h, ncpu=None, target_chunk
     weights : ndarray
         Weights for the data points, shape (n,).
     f_h : float
-        Cutoff multiplier for the bandwidth.
+        Cutoff multiplier for filtering.
     ncpu : int, optional
-        Number of CPUs to use (defaults to all available cores).
+        Number of CPUs for parallel processing (defaults to all available).
     target_chunk_size : int, optional
-        Target number of walkers per chunk (default: 500).
+        Target number of walkers per chunk.
 
     Returns
     -------
     G_updated : ndarray
-        Updated walker positions (shape (m, D, 1)).
+        Updated walker positions, shape (m, D, 1).
     error : ndarray
-        Convergence error for each walker (shape (m,)).
-    combined_mask : ndarray of bool
-        Boolean mask (shape (n,)) that is the logical OR over all walker chunks;
-        used to filter X for subsequent iterations.
+        Convergence error for each walker, shape (m,).
+    combined_mask : ndarray
+        Boolean mask for filtering data points in the next iteration, shape (n,).
     """
     if ncpu is None:
         ncpu = cpu_count()
@@ -599,9 +533,6 @@ def wgauss_and_shift_multiproc(X, G, h, d, weights, f_h, ncpu=None, target_chunk
 
     # Ensure we don't create more chunks than there are walkers.
     num_chunks = min(num_chunks, m)
-
-    # Debug print (optional)
-    #print(f"Using {num_chunks} chunks (raw_chunks: {raw_chunks}, ncpu: {ncpu})")
 
     # Split G into chunks (each chunk is a subset of walkers)
     G_chunks = np.array_split(G, num_chunks)

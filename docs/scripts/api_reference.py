@@ -73,15 +73,20 @@ API_REFERENCE = {
         'module': 'crispy.scms',
         'description': '''Subspace Constrained Mean Shift (SCMS) algorithm for density ridge estimation.''',
         'members': [
-            {'name': 'chunk_data', 'type': 'function', 'description': '''Divide data into chunks for multiprocessing.'''},
-            {'name': 'euclidean_dist', 'type': 'function', 'description': '''Compute the Euclidean distances and differences between data points and walkers.'''},
-            {'name': 'find_ridge', 'type': 'function', 'description': '''Identify density ridges in data using the Subspace Constrained Mean Shift (SCMS) algorithm.'''},
-            {'name': 'shift_particles', 'type': 'function', 'description': '''Shift walkers toward density ridges using the Subspace Constrained Mean Shift (SCMS) algorithm.'''},
-            {'name': 'shift_wakers_multiproc', 'type': 'function', 'description': '''Shift walkers towards density ridges using the SCMS algorithm with multiprocessing.'''},
-            {'name': 'shift_walkers', 'type': 'function', 'description': '''Shift walkers towards density ridges using the Subspace Constrained Mean Shift (SCMS) algorithm.'''},
-            {'name': 'vectorized_gaussian', 'type': 'function', 'description': '''Compute Gaussian kernel values for data points relative to walker positions.'''},
-            {'name': 'wgauss_n_filtered_points', 'type': 'function', 'description': '''Compute weighted Gaussian values for data points relative to walker positions,.'''},
-            {'name': 'wgauss_n_filtered_points_multiproc', 'type': 'function', 'description': '''Compute weighted Gaussian values for data points relative to walker positions.'''}
+            {'name': 'find_ridge', 'type': 'function', 'description': '''Identify density ridges using the Subspace Constrained Mean Shift (SCMS) algorithm.'''},
+            {'name': 'shift_wakers_multiproc', 'type': 'function', 'description': '''Shift walkers towards density ridges using parallel processing.'''},
+            {'name': 'shift_walkers', 'type': 'function', 'description': '''Perform a single SCMS shift step to update walker positions.'''},
+            {'name': 'wgauss_and_shift_multiproc', 'type': 'function', 'description': '''Compute Gaussian weights and shift walkers in parallel.'''},
+            {'name': 'wgauss_n_all_points', 'type': 'function', 'description': '''Compute weighted Gaussian values and distance-thresholded boolean mask for all data points.'''},
+            {'name': 'wgauss_n_filtered_points', 'type': 'function', 'description': '''Compute weighted Gaussian values and filter data points within a cutoff distance.'''},
+            {'name': 'wgauss_n_filtered_points_multiproc', 'type': 'function', 'description': '''Compute weighted Gaussian values and filter data points in parallel.'''}
+        ]
+    },
+    'crispy.utils': {
+        'module': 'crispy.utils',
+        'description': '''Undocumented''',
+        'members': [
+            {'name': 'peak_memory_usage', 'type': 'function', 'description': '''Decorator to measure and print the peak memory usage of a function.'''}
         ]
     },
     'crispy.visualize': {

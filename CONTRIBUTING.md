@@ -47,6 +47,15 @@ Thank you for considering contributing to **CRISPy**! Here’s how to set up you
    ```
    deactivate
    ```
+   
+## For building and distributing to PyPI:
+
+1. **Install from Test PyPI**
+
+   Navigate to the `docs` directory:
+   ```
+   pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ crispy-learn
+   ```
 
 ## Additional Notes
 

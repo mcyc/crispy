@@ -4,7 +4,7 @@ crispy.scms
 ===========
 
 .. automodule:: crispy.scms
-   :exclude-members: _hidden_member, chunk_data, euclidean_dist, find_ridge, shift_particles, shift_wakers_multiproc, shift_walkers, vectorized_gaussian, wgauss_n_filtered_points, wgauss_n_filtered_points_multiproc
+   :exclude-members: _hidden_member, find_ridge, shift_wakers_multiproc, shift_walkers, wgauss_and_shift_multiproc, wgauss_n_all_points, wgauss_n_filtered_points, wgauss_n_filtered_points_multiproc
    
 .. rubric:: Functions
 
@@ -12,13 +12,11 @@ crispy.scms
    :toctree: generated/
    :nosignatures:
 
-   chunk_data
-   euclidean_dist
    find_ridge
-   shift_particles
    shift_wakers_multiproc
    shift_walkers
-   vectorized_gaussian
+   wgauss_and_shift_multiproc
+   wgauss_n_all_points
    wgauss_n_filtered_points
    wgauss_n_filtered_points_multiproc
    

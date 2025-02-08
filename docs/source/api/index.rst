@@ -17,6 +17,7 @@ you can also search with the search bar located on the top right corner of the w
    crispy.image_ridge_find
    crispy.pruning
    crispy.scms
+   crispy.utils
    crispy.visualize
    
 
@@ -322,42 +323,12 @@ you can also search with the search bar located on the top right corner of the w
 
              :mod:`crispy.pruning.structures`
    
-   * - :obj:`~crispy.scms.chunk_data`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.scms
-
-          .. autoshortsummary:: crispy.scms.chunk_data
-
-          .. container:: caption
-
-             :mod:`crispy.scms`
-   * - :obj:`~crispy.scms.euclidean_dist`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.scms
-
-          .. autoshortsummary:: crispy.scms.euclidean_dist
-
-          .. container:: caption
-
-             :mod:`crispy.scms`
    * - :obj:`~crispy.scms.find_ridge`
      - .. container:: sk-apisearch-desc
 
           .. currentmodule:: crispy.scms
 
           .. autoshortsummary:: crispy.scms.find_ridge
-
-          .. container:: caption
-
-             :mod:`crispy.scms`
-   * - :obj:`~crispy.scms.shift_particles`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.scms
-
-          .. autoshortsummary:: crispy.scms.shift_particles
 
           .. container:: caption
 
@@ -382,12 +353,22 @@ you can also search with the search bar located on the top right corner of the w
           .. container:: caption
 
              :mod:`crispy.scms`
-   * - :obj:`~crispy.scms.vectorized_gaussian`
+   * - :obj:`~crispy.scms.wgauss_and_shift_multiproc`
      - .. container:: sk-apisearch-desc
 
           .. currentmodule:: crispy.scms
 
-          .. autoshortsummary:: crispy.scms.vectorized_gaussian
+          .. autoshortsummary:: crispy.scms.wgauss_and_shift_multiproc
+
+          .. container:: caption
+
+             :mod:`crispy.scms`
+   * - :obj:`~crispy.scms.wgauss_n_all_points`
+     - .. container:: sk-apisearch-desc
+
+          .. currentmodule:: crispy.scms
+
+          .. autoshortsummary:: crispy.scms.wgauss_n_all_points
 
           .. container:: caption
 
@@ -412,6 +393,17 @@ you can also search with the search bar located on the top right corner of the w
           .. container:: caption
 
              :mod:`crispy.scms`
+   
+   * - :obj:`~crispy.utils.peak_memory_usage`
+     - .. container:: sk-apisearch-desc
+
+          .. currentmodule:: crispy.utils
+
+          .. autoshortsummary:: crispy.utils.peak_memory_usage
+
+          .. container:: caption
+
+             :mod:`crispy.utils`
    
    * - :obj:`~crispy.visualize.mask_trace_3D`
      - .. container:: sk-apisearch-desc

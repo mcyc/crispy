@@ -14,7 +14,6 @@ crispy
 
    grid_ridge
    image_ridge_find
-   place_holder
    scms
    utils
    visualize

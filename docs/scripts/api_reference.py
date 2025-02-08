@@ -28,20 +28,6 @@ API_REFERENCE = {
             {'name': 'write_output', 'type': 'function', 'description': '''Write SCMS output coordinates to a file.'''}
         ]
     },
-    'crispy.place_holder': {
-        'module': 'crispy.place_holder',
-        'description': '''Subspace Constrained Mean Shift (SCMS) algorithm for density ridge estimation.''',
-        'members': [
-            {'name': 'chunk_data', 'type': 'function', 'description': '''Divide data into chunks for multiprocessing.'''},
-            {'name': 'find_ridge', 'type': 'function', 'description': '''Identify density ridges in data using the Subspace Constrained Mean Shift (SCMS) algorithm.'''},
-            {'name': 'shift_particles', 'type': 'function', 'description': '''Shift walkers toward density ridges using the Subspace Constrained Mean Shift (SCMS) algorithm.'''},
-            {'name': 'shift_wakers_multiproc', 'type': 'function', 'description': '''Shift walkers towards density ridges using the SCMS algorithm with multiprocessing.'''},
-            {'name': 'shift_walkers', 'type': 'function', 'description': '''Shift walkers towards density ridges using the Subspace Constrained Mean Shift (SCMS) algorithm.'''},
-            {'name': 'vectorized_gaussian', 'type': 'function', 'description': '''Compute Gaussian kernel values for data points relative to walker positions.'''},
-            {'name': 'wgauss_n_filtered_points', 'type': 'function', 'description': '''Compute weighted Gaussian values for data points relative to walker positions,.'''},
-            {'name': 'wgauss_n_filtered_points_multiproc', 'type': 'function', 'description': '''Optimized computation of weighted Gaussian values with reduced memory footprint.'''}
-        ]
-    },
     'crispy.pruning': {
         'module': 'crispy.pruning',
         'description': '''Undocumented''',

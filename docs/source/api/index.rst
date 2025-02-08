@@ -15,7 +15,6 @@ you can also search with the search bar located on the top right corner of the w
 
    crispy.grid_ridge
    crispy.image_ridge_find
-   crispy.place_holder
    crispy.pruning
    crispy.scms
    crispy.utils
@@ -179,87 +178,6 @@ you can also search with the search bar located on the top right corner of the w
           .. container:: caption
 
              :mod:`crispy.image_ridge_find`
-   
-   * - :obj:`~crispy.place_holder.chunk_data`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.place_holder
-
-          .. autoshortsummary:: crispy.place_holder.chunk_data
-
-          .. container:: caption
-
-             :mod:`crispy.place_holder`
-   * - :obj:`~crispy.place_holder.find_ridge`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.place_holder
-
-          .. autoshortsummary:: crispy.place_holder.find_ridge
-
-          .. container:: caption
-
-             :mod:`crispy.place_holder`
-   * - :obj:`~crispy.place_holder.shift_particles`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.place_holder
-
-          .. autoshortsummary:: crispy.place_holder.shift_particles
-
-          .. container:: caption
-
-             :mod:`crispy.place_holder`
-   * - :obj:`~crispy.place_holder.shift_wakers_multiproc`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.place_holder
-
-          .. autoshortsummary:: crispy.place_holder.shift_wakers_multiproc
-
-          .. container:: caption
-
-             :mod:`crispy.place_holder`
-   * - :obj:`~crispy.place_holder.shift_walkers`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.place_holder
-
-          .. autoshortsummary:: crispy.place_holder.shift_walkers
-
-          .. container:: caption
-
-             :mod:`crispy.place_holder`
-   * - :obj:`~crispy.place_holder.vectorized_gaussian`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.place_holder
-
-          .. autoshortsummary:: crispy.place_holder.vectorized_gaussian
-
-          .. container:: caption
-
-             :mod:`crispy.place_holder`
-   * - :obj:`~crispy.place_holder.wgauss_n_filtered_points`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.place_holder
-
-          .. autoshortsummary:: crispy.place_holder.wgauss_n_filtered_points
-
-          .. container:: caption
-
-             :mod:`crispy.place_holder`
-   * - :obj:`~crispy.place_holder.wgauss_n_filtered_points_multiproc`
-     - .. container:: sk-apisearch-desc
-
-          .. currentmodule:: crispy.place_holder
-
-          .. autoshortsummary:: crispy.place_holder.wgauss_n_filtered_points_multiproc
-
-          .. container:: caption
-
-             :mod:`crispy.place_holder`
    
    
    * - :obj:`~crispy.pruning.Skeleton.Skeleton`
